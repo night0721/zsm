@@ -1,15 +1,93 @@
+#include "config.h"
 #include "packet.h"
-#include <pthread.h>
+#include "key.h"
+#include "util.h"
+#include "client/ui.h"
+#include "client/db.h"
 
-uint8_t shared_key[SHARED_KEY_SIZE];
 int sockfd;
 
 /*
- * Connect to socket server
+ * Authenticate with server by signing a challenge
  */
-int socket_init()
+int authenticate_server(key_pair *kp)
 {
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    packet server_auth_pkt;
+    int status;
+    if ((status = recv_packet(&server_auth_pkt, sockfd, ZSM_TYP_AUTH) != ZSM_STA_SUCCESS)) {
+        return status;
+    }
+    uint8_t *challenge = server_auth_pkt.data;
+    
+    uint8_t *sig = memalloc(SIGN_SIZE * sizeof(uint8_t));
+    crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk.bin);
+	
+	uint8_t *pk_content = memalloc(PK_SIZE);
+	memcpy(pk_content, kp->pk.bin, PK_BIN_SIZE);
+	memcpy(pk_content + PK_BIN_SIZE, kp->pk.username, MAX_NAME);
+	memcpy(pk_content + PK_BIN_SIZE + MAX_NAME, &kp->pk.creation, TIME_SIZE);
+	memcpy(pk_content + PK_BIN_SIZE + METADATA_SIZE, kp->pk.signature, SIGN_SIZE);
+
+    packet *auth_pkt = create_packet(1, ZSM_TYP_AUTH, SIGN_SIZE, pk_content, sig);
+    if (send_packet(auth_pkt, sockfd) != ZSM_STA_SUCCESS) {
+        /* fd already closed */
+        error(0, "Could not authenticate with server");
+        free(sig);
+        free_packet(auth_pkt);
+        return ZSM_STA_ERROR_AUTHENTICATE;
+    }
+
+    free_packet(auth_pkt);
+    packet response;
+	status = recv_packet(&response, sockfd, ZSM_TYP_INFO);
+	return (response.status == ZSM_STA_AUTHORISED ?  ZSM_STA_SUCCESS : ZSM_STA_ERROR_AUTHENTICATE);
+}
+
+/*
+ * For sending packets to server
+ */
+void *send_message(void *arg)
+{
+	key_pair *kp = (key_pair *) arg;
+
+    while (1) {
+		int status = encrypt_packet(sockfd, kp);
+        if (status != ZSM_STA_SUCCESS) {
+            error(1, "Error encrypting packet %x", status);
+        }
+    }
+
+    return NULL;
+}
+
+/*
+ * For receiving packets from server
+ */
+void *receive_message(void *arg)
+{
+	key_pair *kp = (key_pair *) arg;
+
+    while (1) {
+		packet pkt;
+
+        if (verify_packet(&pkt, sockfd) == 0) {
+            error(0, "Error verifying packet");
+        }
+		uint8_t *decrypted = decrypt_data(&pkt);
+		free(decrypted);
+    }
+
+    return NULL;
+}
+
+int main()
+{
+    if (sodium_init() < 0) {
+        write_log(LOG_ERROR, "Error initializing libsodium\n");
+    }
+    //ui();
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
         error(1, "Error on opening socket");
     }
@@ -19,129 +97,58 @@ int socket_init()
         error(1, "No such host %s", DOMAIN);
     }
 
-    struct sockaddr_in sv_addr;
-    memset(&sv_addr, 0, sizeof(sv_addr));
-    sv_addr.sin_family = AF_INET;
-    sv_addr.sin_port = htons(PORT);
-    memcpy(&sv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
 
-/*     free(server); */
-    if (connect(sockfd, (struct sockaddr *) &sv_addr, sizeof(sv_addr)) < 0) {
-        error(1, "Error on connect");
-        close(sockfd);
-        return 0;
-    }
-    printf("Connected to server at %s\n", DOMAIN);
-    return sockfd;
-}
-
-/*
- * Performs key exchange with server
- */
-int key_exchange(int sockfd)
-{
-    /* Generate the client's key pair */
-    uint8_t cl_pk[PUBLIC_KEY_SIZE], cl_sk[PRIVATE_KEY_SIZE];
-    crypto_kx_keypair(cl_pk, cl_sk);
-
-    /* Send our public key */
-    if (send_public_key(sockfd, cl_pk) < 0) {
-        return -1;
-    }
-    
-    /* Get public key from server */
-    uint8_t *pk;
-    if ((pk = get_public_key(sockfd)) == NULL) {
-        return -1;
-    }
-
-    /* Compute a shared key using the server's public key and our secret key */
-    if (crypto_kx_client_session_keys(NULL, shared_key, cl_pk, cl_sk, pk) != 0) {
-        error(1, "Server public key is not acceptable");
-        free(pk);
-        close(sockfd);
-        return -1;
-    }
-    free(pk);
-    return 0;
-}
-
-void *sender()
-{
-    while (1) {
-        printf("Enter message to send to server: ");
-        fflush(stdout);
-        char line[1024];
-        line[0] = '\0';
-        size_t length = strlen(line);
-        while (length <= 1) {
-            fgets(line, sizeof(line), stdin);
-            length = strlen(line);
-        }
-        length -= 1;
-        line[length] = '\0';
-
-        uint8_t nonce[NONCE_SIZE];
-        uint8_t encrypted[length + ADDITIONAL_SIZE];
-        unsigned long long encrypted_len;
-        
-        randombytes_buf(nonce, sizeof(nonce));
-        crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_len,
-                                                   line, length,
-                                                   NULL, 0, NULL, nonce, shared_key);
-        size_t payload_t = NONCE_SIZE + encrypted_len; 
-        uint8_t encryptedwithnonce[payload_t];
-        memcpy(encryptedwithnonce, nonce, NONCE_SIZE);
-        memcpy(encryptedwithnonce + NONCE_SIZE, encrypted, encrypted_len);
-        
-        message *msg = create_packet(1, 0x10, payload_t, encryptedwithnonce);
-        if (send_packet(msg, sockfd) != ZSM_STA_SUCCESS) {
-            close(sockfd);
-        }
-        free_packet(msg);
-    }
-    close(sockfd);
-
-}
-
-void *receiver()
-{
-    while (1) {
-        message servermsg;
-        if (recv_packet(&servermsg, sockfd) != ZSM_STA_SUCCESS) {
+/*  free(server); Can't be freed seems */
+    if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr)
+				) < 0) {
+		if (errno != EINPROGRESS) {
+			/* Connection is in progress, shouldn't be treated as error */
+            error(1, "Error on connect");
             close(sockfd);
             return 0;
         }
-        free(servermsg.data);
-    }
-    return NULL;
-}
+	}
+	write_log(LOG_INFO, "Connected to server at %s\n", DOMAIN);
 
-int main()
-{
-    if (sodium_init() < 0) {
-        error(1, "Error initializing libsodium");
-    }
-    sockfd = socket_init();
-    if (key_exchange(sockfd) < 0) {
+/* 	set_nonblocking(sockfd); */
+	/*
+	key_pair *kpp = create_key_pair("palanix");
+	key_pair *kpn = create_key_pair("night");
+*/
+	key_pair *kpp = get_key_pair("palanix");
+	key_pair *kpn = get_key_pair("night");
+
+    if (authenticate_server(kpp) != ZSM_STA_SUCCESS) {
         /* Fatal */
-        error(1, "Error performing key exchange with server");
-    }
-    pthread_t recv_worker, send_worker;
-    if (pthread_create(&recv_worker, NULL, sender, NULL) != 0) {
-        fprintf(stderr, "Error creating incoming thread\n");
-        return 1;
+        error(1, "Error authenticating with server");
+	} else {
+		write_log(LOG_INFO, "Authenticated with server\n");
+		printf("Authenticated as palanix\n");
+	}
+
+	/* Create threads for sending and receiving messages */
+	pthread_t send_thread, receive_thread;
+
+    if (pthread_create(&send_thread, NULL, send_message, kpp) != 0) {
+		close(sockfd);
+        error(1, "Failed to create send thread");
+        exit(EXIT_FAILURE);
     }
 
-    if (pthread_create(&send_worker, NULL, receiver, NULL) != 0) {
-        fprintf(stderr, "Error creating outgoing thread\n");
-        return 1;
+    if (pthread_create(&receive_thread, NULL, receive_message, kpp) != 0) {
+		close(sockfd);
+		error(1, "Failed to create receive thread");
     }
 
-    // Join threads
-    pthread_join(recv_worker, NULL);
-    pthread_join(send_worker, NULL);
+	/* Wait for threads to finish */
+    pthread_join(send_thread, NULL);
+    pthread_join(receive_thread, NULL);
 
+    close(sockfd);
     return 0;
 }
-

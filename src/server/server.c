@@ -1,79 +1,82 @@
 #include "packet.h"
+#include "util.h"
+#include "config.h"
 #include "notification.h"
-#include <pthread.h>
 
-socklen_t clilen;
-struct sockaddr_in cli_address;
-uint8_t shared_key[SHARED_KEY_SIZE];
-int clientfd;
+typedef struct client_t {
+	int fd; /* File descriptor for client socket */
+	uint8_t *shared_key;
+	char username[MAX_NAME]; /* Username of client */
+} client_t;
 
-/*
- * Initialise socket server
- */
-int socket_init()
-{
-    int serverfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverfd < 0) {
-        error(1, "Error on opening socket");
-    }
+typedef struct thread_t {
+	int epoll_fd; /* epoll instance for each thread */
+	pthread_t thread; /* POSIX thread */
+	int num_clients; /* Number of active clients in thread */
+	client_t clients[MAX_CLIENTS_PER_THREAD]; /* Active clients */
+} thread_t;
 
-    /* Reuse addr(for debug) */
-    int optval = 1;
-    if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+thread_t threads[MAX_THREADS];
+int num_thread = 0;
 
-        error(1, "Error at setting SO_REUSEADDR");
-    }
-
-    struct sockaddr_in sv_addr;
-    memset(&sv_addr, 0, sizeof(sv_addr));
-    sv_addr.sin_family = AF_INET;
-    sv_addr.sin_addr.s_addr = INADDR_ANY;
-    sv_addr.sin_port = htons(PORT);
-
-    if (bind(serverfd, (struct sockaddr *) &sv_addr, sizeof(sv_addr)) < 0) {
-        error(1, "Error on bind");
-    }
-
-    if (listen(serverfd, MAX_CONNECTION) < 0) {
-        error(1, "Error on listen");
-    }
-
-    printf("Listening on port %d\n", PORT);
-    clilen = sizeof(cli_address);
-    return serverfd;
-}
+void *thread_worker(void *arg);
+int set_nonblocking(int fd);
 
 /*
- * Performs key exchange with client
+ * Authenticate client before starting communication
  */
-int key_exchange(int clientfd)
+int authenticate_client(int clientfd, uint8_t *username)
 {
-    /* Generate the server's key pair */
-    uint8_t sv_pk[PUBLIC_KEY_SIZE], sv_sk[PRIVATE_KEY_SIZE];
-    crypto_kx_keypair(sv_pk, sv_sk);
-    
-    /* Get public key from client */
-    uint8_t *pk;
-    if ((pk = get_public_key(clientfd)) == NULL) {
-        return -1;
+	/* Create a challenge */
+    uint8_t *challenge = memalloc(CHALLENGE_SIZE * sizeof(uint8_t));
+    randombytes_buf(challenge, CHALLENGE_SIZE);
+
+    /* Sending fake signature as structure requires it */
+    uint8_t *fake_sig =	create_signature(NULL, 0, NULL);
+
+    packet *auth_pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
+			challenge, fake_sig);
+    if (send_packet(auth_pkt, clientfd) != ZSM_STA_SUCCESS) {
+        /* fd already closed */
+        error(0, "Could not authenticate client");
+        free(challenge);
+        free_packet(auth_pkt);
+        goto failure;
     }
-   
-    /* Send our public key */
-    if (send_public_key(clientfd, sv_pk) < 0) {
-        free(pk);
-        return -1;
+    free(fake_sig);
+
+    packet client_auth_pkt;
+    int status;
+    if ((status = recv_packet(&client_auth_pkt, clientfd, ZSM_TYP_AUTH)
+				!= ZSM_STA_SUCCESS)) {
+        error(0, "Could not authenticate client");
+        goto failure;
     }
 
-    /* Compute a shared key using the client's public key and our secret key. */
-    if (crypto_kx_server_session_keys(NULL, shared_key, sv_pk, sv_sk, pk) != 0) {
-        error(0, "Client public key is not acceptable");
-        free(pk);
-        close(clientfd);
-        return -1;
-    }
+	uint8_t pk_bin[PK_BIN_SIZE], pk_username[MAX_NAME];
+	memcpy(pk_bin, client_auth_pkt.data, PK_BIN_SIZE);
+	memcpy(pk_username, client_auth_pkt.data + PK_BIN_SIZE, MAX_NAME);
 
-    free(pk);
-    return 0;
+    if (crypto_sign_verify_detached(client_auth_pkt.signature, challenge, CHALLENGE_SIZE, pk_bin) != 0) {
+        error(0, "Incorrect signature, could not authenticate client");
+        free(client_auth_pkt.data);
+        goto failure;
+    } else {
+        packet *ok_pkt = create_packet(ZSM_STA_AUTHORISED, ZSM_TYP_INFO
+				, 0, NULL, NULL);
+		send_packet(ok_pkt, clientfd);
+        free_packet(ok_pkt);
+		strcpy(username, pk_username);
+        return ZSM_STA_SUCCESS;
+    }
+failure:;
+	packet *error_pkt = create_packet(ZSM_STA_UNAUTHORISED, ZSM_TYP_ERROR,
+			0, NULL, create_signature(NULL, 0, NULL));
+
+    send_packet(error_pkt, clientfd);
+    free_packet(error_pkt);
+    close(clientfd);
+    return ZSM_STA_ERROR_AUTHENTICATE;
 }
 
 void signal_handler(int signal)
@@ -91,98 +94,48 @@ void signal_handler(int signal)
     }
 }
 
-void *receiver()
+/*
+ * Takes thread_t as argument to use its epoll instance to wait new messages
+ * Thread worker to relay messages
+ */
+void *thread_worker(void *arg)
 {
-    int serverfd = socket_init();
-    clientfd = accept(serverfd, (struct sockaddr *) &cli_address, &clilen);
-    if (clientfd < 0) {
-        error(0, "Error on accepting client");
-        /* Continue accpeting connections */
-/*         continue; */
-    }
+	thread_t *thread = (thread_t *)	arg;
+	struct epoll_event events[MAX_EVENTS];
+	
+	while (1) {
+		int num_events = epoll_wait(thread->epoll_fd, events, MAX_EVENTS, -1);
+		if (num_events == -1) {
+			error(0, "epoll_wait");
+		}
+		for (int i = 0; i < num_events; i++) {
+            client_t *client = (client_t *) events[i].data.ptr;
 
-    if (key_exchange(clientfd) < 0) {
-        error(0, "Error performing key exchange with client");
-/*         continue; */
-    }
-    while (1) {
-        message msg;
-        memset(&msg, 0, sizeof(msg));
-        if (recv_packet(&msg, clientfd) != ZSM_STA_SUCCESS) {
-            close(clientfd);
-            break;
-/*             continue; */
+            if (events[i].events & EPOLLIN) {
+				/* handle message */
+				packet pkt;
+				packet *verified_pkt = verify_packet(&pkt, client->fd);
+				if (verified_pkt == NULL) {
+					error(0, "Error verifying packet");
+				}
+				
+				/* Message relay */
+				uint8_t to[MAX_NAME];
+				memcpy(to, verified_pkt->data + MAX_NAME, MAX_NAME);
+				
+				for (int i = 0; i < MAX_THREADS; i++) {
+					thread_t thread = threads[i];
+					for (int j = 0; j < thread.num_clients; j++) {
+						client_t client = thread.clients[j];
+						if (strcmp(client.username, to) == 0) {
+							error(0, "Relaying message to %s\n", client.username);
+							send_packet(verified_pkt, client.fd);
+						}
+					}
+				}
+			}
         }
-        
-        size_t encrypted_len = msg.length - NONCE_SIZE;
-        size_t msg_len = encrypted_len - ADDITIONAL_SIZE;
-        uint8_t nonce[NONCE_SIZE];
-        uint8_t encrypted[encrypted_len];
-        uint8_t decrypted[msg_len + 1];
-        unsigned long long decrypted_len;
-        memcpy(nonce, msg.data, NONCE_SIZE);
-        memcpy(encrypted, msg.data + NONCE_SIZE, encrypted_len);
-        
-        free(msg.data);
-        if (crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, &decrypted_len,
-                                                            NULL,
-                                                            encrypted, encrypted_len,
-                                                            NULL, 0,
-                                                            nonce, shared_key) != 0) {
-            error(0, "Cannot decrypt message");
-        } else {
-            /* Decrypted message */
-            decrypted[msg_len] = '\0';
-            printf("Decrypted: %s\n", decrypted);
-            send_notification(decrypted);
-            msg.data = malloc(14);
-            strcpy(msg.data, "Received data");
-            msg.length = 14;
-            send_packet(&msg, clientfd);
-            free(msg.data);
-        }
-    }
-    close(clientfd);
-    close(serverfd);
-    return NULL;
-}
-
-void *sender()
-{
-    while (1) {
-        printf("Enter message to send to client: ");
-        fflush(stdout);
-        char line[1024];
-        line[0] = '\0';
-        size_t length = strlen(line);
-        while (length <= 1) {
-            fgets(line, sizeof(line), stdin);
-            length = strlen(line);
-        }
-        length -= 1;
-        line[length] = '\0';
-
-        uint8_t nonce[NONCE_SIZE];
-        uint8_t encrypted[length + ADDITIONAL_SIZE];
-        unsigned long long encrypted_len;
-        
-        randombytes_buf(nonce, sizeof(nonce));
-        crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, &encrypted_len,
-                                                   line, length,
-                                                   NULL, 0, NULL, nonce, shared_key);
-        size_t payload_t = NONCE_SIZE + encrypted_len; 
-        uint8_t encryptedwithnonce[payload_t];
-        memcpy(encryptedwithnonce, nonce, NONCE_SIZE);
-        memcpy(encryptedwithnonce + NONCE_SIZE, encrypted, encrypted_len);
-        
-        message *msg = create_packet(1, 0x10, payload_t, encryptedwithnonce);
-        if (send_packet(msg, clientfd) != ZSM_STA_SUCCESS) {
-            close(clientfd);
-        }
-        free_packet(msg);
-    }
-    close(clientfd);
-    return NULL;
+	}
 }
 
 int main()
@@ -198,21 +151,125 @@ int main()
     signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
-    
-    pthread_t recv_worker, send_worker;
-    if (pthread_create(&recv_worker, NULL, sender, NULL) != 0) {
-        fprintf(stderr, "Error creating incoming thread\n");
-        return 1;
+
+	/* Start server and epoll */
+	int serverfd, clientfd;
+
+	/* Create socket */
+	serverfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverfd < 0) {
+        error(1, "Error on opening socket");
     }
 
-    if (pthread_create(&send_worker, NULL, receiver, NULL) != 0) {
-        fprintf(stderr, "Error creating outgoing thread\n");
-        return 1;
+    /* Reuse address (for debug) */
+    int opt = 1;
+    if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        error(1, "Error at setting SO_REUSEADDR");
     }
 
-    // Join threads
-    pthread_join(recv_worker, NULL);
-    pthread_join(send_worker, NULL);
+	struct sockaddr_in server_addr, client_addr;
+	socklen_t client_addr_len = sizeof(client_addr);
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
 
+    if (bind(serverfd, (struct sockaddr *) &server_addr
+				, sizeof(server_addr)) < 0) {
+		close(serverfd);
+        error(1, "Error on bind");
+    }
+
+    if (listen(serverfd, MAX_CONNECTION_QUEUE) < 0) {
+		close(serverfd);
+        error(1, "Error on listen");
+    }
+	
+
+	/* Creating thread pool */
+	for (int i = 0; i < MAX_THREADS; i++) {
+		/* Create epoll instance for each thread */
+		threads[i].epoll_fd = epoll_create1(0);
+		if (threads[i].epoll_fd < 0) {
+			error(1, "Error on creating epoll instance");
+		}
+		threads[i].num_clients = 0;
+
+		/* Start a new thread and pass thread_t struct to thread */
+		if (pthread_create(&threads[i].thread, NULL, thread_worker,
+					&threads[i]) != 0) {
+			error(1, "Error on creating threads");
+		} else {
+			error(0, "Thread %d created", i);
+		}
+	}
+
+	error(0, "Listening on port %d", PORT);
+
+	/* Server loop to accept clients and load balance */
+	while (1) {
+		clientfd = accept(serverfd, (struct sockaddr *) &client_addr,
+				&client_addr_len);
+		if (clientfd < 0) {
+			error(0, "Error on accepting client");
+			continue;
+		}
+
+		/* Assign new client to a thread
+		 * Clients distributed by a rotation(round-robin)
+		 */
+		thread_t *thread = &threads[num_thread];
+		if (thread->num_clients >= MAX_CLIENTS_PER_THREAD) {
+			error(0, "Thread %d is already full, rejecting connection\n",
+					num_thread);
+			close(clientfd);
+			continue;
+		}
+
+		client_t *client = &thread->clients[thread->num_clients];
+		
+		uint8_t username[MAX_NAME];
+		/* User logins, authenticate them */
+		if (authenticate_client(clientfd, username) != ZSM_STA_SUCCESS) {
+			error(0, "Error authenticating with client");
+			continue;
+		}
+
+		/* To use EPOLLET, an nonblocking fd is required */
+		/*
+		if (set_nonblocking(clientfd) == -1) {
+            perror("Failed to set client socket to non-blocking");
+            close(clientfd);
+            continue;
+        }
+		*/
+
+        /* Add the new client to the thread's epoll instance */
+        struct epoll_event event;
+        event.data.ptr = client;
+        event.events = EPOLLIN;
+
+        if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, clientfd, &event) == -1) {
+            perror("Failed to add client to epoll");
+            close(clientfd);
+            continue;
+        }
+
+		/* Assign fd to client in a thread */
+		client->fd = clientfd;
+		strcpy(client->username, username);
+		thread->num_clients++;
+		
+		/* Rotate num_thread back to start if it is larder than MAX_THREADS */
+		num_thread = (num_thread + 1) % MAX_THREADS;
+	}
+
+	/* End the thread */
+	for (int i = 0; i < MAX_THREADS; i++) {
+        if (pthread_join(threads[i].thread, NULL) != 0) {
+            error(0, "pthread_join");
+        }
+    }
+	close(serverfd);
     return 0;
 }
