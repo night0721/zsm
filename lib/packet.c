@@ -263,9 +263,7 @@ int encrypt_packet(int sockfd, key_pair *kp)
 		/* Pad with null characters up to max length */
 		memset(recipient + length, 0, MAX_NAME - length);
 	}
-	memcpy(raw_data, kp->pk.username, MAX_NAME);
-	memcpy(raw_data + MAX_NAME, recipient, MAX_NAME);
-	memcpy(raw_data + MAX_NAME * 2, line, length_line);
+	memcpy(raw_data, line, length_line);
 	size_t raw_data_size = MAX_NAME * 2 + strlen(line);
 	
 	uint8_t *data = encrypt_data(kp->pk.username, recipient, raw_data, raw_data_size, &data_len);
@@ -331,7 +329,6 @@ uint8_t *encrypt_data(uint8_t *from, uint8_t *to, uint8_t *raw, uint32_t raw_len
     uint8_t encrypted[encrypted_len];
     
     /* Generate random nonce(number used once) */
-	printf("raw: %s\n", raw);
     randombytes_buf(nonce, sizeof(nonce));
     crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, NULL, raw, 
 			raw_length, NULL, 0, NULL, nonce, shared_key);
@@ -383,7 +380,7 @@ uint8_t *decrypt_data(packet *pkt)
     } else {
         /* Terminate decrypted message so we don't print random bytes */
         decrypted[data_len] = '\0';
-		printf("<%s> to <%s>: %s\n", from, to, decrypted + MAX_NAME * 2);
+		printf("<%s> to <%s>: %s\n", from, to, decrypted);
 		return decrypted;
     }
 }

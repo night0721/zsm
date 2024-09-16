@@ -128,7 +128,7 @@ void *thread_worker(void *arg)
 					for (int j = 0; j < thread.num_clients; j++) {
 						client_t client = thread.clients[j];
 						if (strcmp(client.username, to) == 0) {
-							error(0, "Relaying message to %s\n", client.username);
+							error(0, "Relaying message to %s", client.username);
 							send_packet(verified_pkt, client.fd);
 						}
 					}
