@@ -9,7 +9,6 @@
 void error(int fatal, const char *fmt, ...);
 void *memalloc(size_t size);
 void *estrdup(void *str);
-int set_nonblocking(int fd);
 char *replace_home(char *str);
 void mkdir_p(const char *destdir);
 void write_log(int type, const char *fmt, ...);

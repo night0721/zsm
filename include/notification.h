@@ -4,6 +4,6 @@
 #include <stdint.h>
 #include <libnotify/notify.h>
 
-void send_notification(uint8_t *content);
+void send_notification(uint8_t *author, uint8_t *content);
 
 #endif

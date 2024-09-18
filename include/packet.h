@@ -26,8 +26,6 @@
 
 #include "config.h"
 
-#define ERROR_LENGTH 26
-
 #define ZSM_TYP_AUTH 0x1
 #define ZSM_TYP_MESSAGE 0x2
 #define ZSM_TYP_UPDATE_MESSAGE 0x3
@@ -51,32 +49,35 @@
 #define ZSM_STA_AUTHORISED 0xE
 
 #define ADDRESS_SIZE MAX_NAME + 1 + 255 /* 1 for @, 255 for domain, defined in RFC 5321, Section 4.5.3.1.2 */
-#define CHALLENGE_SIZE 32
 #define HASH_SIZE crypto_generichash_BYTES
 #define NONCE_SIZE crypto_aead_xchacha20poly1305_ietf_NPUBBYTES
 #define ADDITIONAL_SIZE crypto_aead_xchacha20poly1305_ietf_ABYTES
+#define MAX_MESSAGE_LENGTH MAX_DATA_LENGTH - MAX_NAME * 2 - NONCE_SIZE
 
-typedef struct packet {
+typedef struct packet_t {
     uint8_t status;
     uint8_t type;
     uint32_t length;
     uint8_t *data;
     uint8_t *signature;
-} packet;
+} packet_t;
+
+typedef struct message_t {
+	uint8_t author[MAX_NAME];
+	uint8_t recipient[MAX_NAME];
+	uint8_t *content;
+	time_t creation;
+} message_t;
 
 #include "key.h"
 
 /* Utilities functions */
-void print_packet(packet *msg);
-int recv_packet(packet *pkt, int fd, uint8_t required_type);
-packet *create_packet(uint8_t option, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature);
-int send_packet(packet *msg, int fd);
-void free_packet(packet *msg);
-int encrypt_packet(int sockfd, key_pair *kp);
-packet *verify_packet(packet *pkt, int fd);
-uint8_t *encrypt_data(uint8_t *from, uint8_t *to, uint8_t *raw, uint32_t raw_length, uint32_t *length);
-uint8_t *decrypt_data(packet *pkt);
-int verify_integrity(packet *pkt, public_key *pk);
+void print_packet(packet_t *msg);
+int recv_packet(packet_t *pkt, int fd, uint8_t required_type);
+packet_t *create_packet(uint8_t option, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature);
+int send_packet(packet_t *msg, int fd);
+void free_packet(packet_t *msg);
+int verify_packet(packet_t *pkt, int fd);
 uint8_t *create_signature(uint8_t *data, uint32_t length, secret_key *sk);
 
 #endif
