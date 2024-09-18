@@ -2,7 +2,7 @@
 #include "key.h"
 #include "util.h"
 
-void print_packet(packet *pkt)
+void print_packet(packet_t *pkt)
 {
     printf("Status: %d\n", pkt->status);
     printf("Type: %d\n", pkt->type);
@@ -22,16 +22,16 @@ void print_packet(packet *pkt)
 }
 
 /*
- * Requires manually free message data
+ * Requires manually free packet data
  * pkt: packet to fill data in (must be created via create_packet)
  * fd: file descriptor to read data from
  * required_type: Required packet type to receive, set 0 to not check
  */
-int recv_packet(packet *pkt, int fd, uint8_t required_type)
+int recv_packet(packet_t *pkt, int fd, uint8_t required_type)
 {
     int status = ZSM_STA_SUCCESS;
 
-    /* Read the message components */
+    /* Read the packet components */
     if (recv(fd, &pkt->status, sizeof(pkt->status), 0) < 0 ||
         recv(fd, &pkt->type, sizeof(pkt->type), 0) < 0 ||
         recv(fd, &pkt->length, sizeof(pkt->length), 0) < 0) {
@@ -45,7 +45,7 @@ int recv_packet(packet *pkt, int fd, uint8_t required_type)
 
     if (pkt->type > 0xFF || pkt->type < 0x0) {
         status = ZSM_STA_INVALID_TYPE;
-        error(0, "Invalid message type");
+        error(0, "Invalid packet type");
         goto failure;
     }
     #if DEBUG == 1
@@ -55,13 +55,13 @@ int recv_packet(packet *pkt, int fd, uint8_t required_type)
     /* Not the same type as wanted to receive */
     if (pkt->type != required_type) {
         status = ZSM_STA_INVALID_TYPE;
-        error(0, "Invalid message type");
+        error(0, "Invalid packet type");
         goto failure;
     }
 
-    if (pkt->length > MAX_MESSAGE_LENGTH) {
+    if (pkt->length > MAX_DATA_LENGTH) {
         status = ZSM_STA_TOO_LONG;
-        error(0, "Message too long: %d", pkt->length);
+        error(0, "Data too long: %d", pkt->length);
         goto failure;
     }
     #if DEBUG == 1
@@ -77,16 +77,20 @@ int recv_packet(packet *pkt, int fd, uint8_t required_type)
 			goto failure;
 		}
 
-		/* Read message data from the socket */
+		/* Read data from the socket */
 		if ((bytes_read = recv(fd, pkt->data, pkt->length, 0)) < 0) {
 			status = ZSM_STA_READING_SOCKET;
 			error(0, "Error reading from socket");
 			free(pkt->data);
 			goto failure;
 		}
+		if (bytes_read == 0) {
+			error(0, "Closed connection");
+			return ZSM_STA_READING_SOCKET;
+		}
 		if (bytes_read != pkt->length) {
 			status = ZSM_STA_INVALID_LENGTH;
-			error(0, "Invalid message length: bytes_read=%ld != pkt->length=%d", bytes_read, pkt->length);
+			error(0, "Invalid data length: bytes_read=%ld != pkt->length=%d", bytes_read, pkt->length);
 			free(pkt->data);
 			goto failure;
 		}
@@ -135,7 +139,7 @@ int recv_packet(packet *pkt, int fd, uint8_t required_type)
     return status;
 
 failure:;
-	packet *error_pkt = create_packet(status, ZSM_TYP_ERROR, 0, NULL,
+	packet_t *error_pkt = create_packet(status, ZSM_TYP_ERROR, 0, NULL,
 			create_signature(NULL, 0, NULL));
 
     if (send_packet(error_pkt, fd) != ZSM_STA_SUCCESS) {
@@ -150,9 +154,9 @@ failure:;
  * Creates a packet for receive or send
  * Requires heap allocated data
  */
-packet *create_packet(uint8_t status, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature)
+packet_t *create_packet(uint8_t status, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature)
 {
-    packet *pkt = memalloc(sizeof(packet));
+    packet_t *pkt = memalloc(sizeof(packet_t));
     pkt->status = status;
     pkt->type = type;
     pkt->length = length;
@@ -166,7 +170,7 @@ packet *create_packet(uint8_t status, uint8_t type, uint32_t length, uint8_t *da
  * Requires heap allocated data
  * Close file descriptor and free data on failure
  */
-int send_packet(packet *pkt, int fd)
+int send_packet(packet_t *pkt, int fd)
 {
     int status = ZSM_STA_SUCCESS;
     uint32_t length = pkt->length;
@@ -200,83 +204,17 @@ failure:
 /*
  * Free allocated memory in packet
  */
-void free_packet(packet *pkt)
+void free_packet(packet_t *pkt)
 {
-    if (pkt->type != ZSM_TYP_AUTH) {
+    if (pkt->type != ZSM_TYP_AUTH && pkt->type != ZSM_TYP_ERROR) {
 		if (pkt->signature != NULL) {
 			free(pkt->signature);
 		}
     }
-    free(pkt->data);
+	if (pkt->data != NULL) {
+		free(pkt->data);
+	}
     free(pkt);
-}
-
-/* 
- * not going to stay
- */
-char *getuserinput()
-{
-    printf("Enter message to send: ");
-    fflush(stdout);
-    char *line = memalloc(1024);
-    line[0] = '\0';
-    size_t length = strlen(line);
-    while (length <= 1) {
-        fgets(line, 1024, stdin);
-        length = strlen(line);
-    }
-    length -= 1;
-    line[length] = '\0';
-    return line;
-}
-
-/* 
- * not going to stay
- */
-char *getrecipient()
-{
-    printf("Enter recipient: ");
-    fflush(stdout);
-    char *line = memalloc(32);
-    line[0] = '\0';
-    size_t length = strlen(line);
-    while (length <= 1) {
-        fgets(line, 1024, stdin);
-        length = strlen(line);
-    }
-    length -= 1;
-    line[length] = '\0';
-    return line;
-}
-
-
-int encrypt_packet(int sockfd, key_pair *kp)
-{
-    int status = ZSM_STA_SUCCESS;
-	char *line = getuserinput();
-	uint8_t *recipient = getrecipient();
-	uint32_t data_len;
-	uint8_t *raw_data = memalloc(8192);
-	size_t length = strlen(recipient);
-	size_t length_line = strlen(line);
-	if (length < MAX_NAME) {
-		/* Pad with null characters up to max length */
-		memset(recipient + length, 0, MAX_NAME - length);
-	}
-	memcpy(raw_data, line, length_line);
-	size_t raw_data_size = MAX_NAME * 2 + strlen(line);
-	
-	uint8_t *data = encrypt_data(kp->pk.username, recipient, raw_data, raw_data_size, &data_len);
-	uint8_t *signature = create_signature(data, data_len, &kp->sk);
-	packet *pkt = create_packet(1, ZSM_TYP_MESSAGE, data_len, data, signature);
-	if ((status = send_packet(pkt, sockfd)) != ZSM_STA_SUCCESS) {
-		close(sockfd);
-		return status;
-	}
-	free(recipient);
-	free(line);
-	free_packet(pkt);
-	return status;
 }
 
 /*
@@ -284,130 +222,36 @@ int encrypt_packet(int sockfd, key_pair *kp)
  * Reads packet from fd, stores in pkt
  * TODO: pkt is unncessary
  */
-packet *verify_packet(packet *pkt, int fd)
+int verify_packet(packet_t *pkt, int fd)
 {
 	if (recv_packet(pkt, fd, ZSM_TYP_MESSAGE) != ZSM_STA_SUCCESS) {
 		close(fd);
-		return NULL;
+		return ZSM_STA_ERROR_INTEGRITY;
 	}
 
 	uint8_t from[MAX_NAME], to[MAX_NAME];
 	memcpy(from, pkt->data, MAX_NAME);
+
 	/* TODO: replace with db operations */
 	key_pair *kp_from = get_key_pair(from);
 	
-    if (verify_integrity(pkt, &kp_from->pk) != ZSM_STA_SUCCESS) {
-        free(pkt->data);
-        free(pkt->signature);
-		packet *error_pkt = create_packet(ZSM_STA_ERROR_INTEGRITY, ZSM_TYP_ERROR, 0, NULL,
+	/* Verify data confidentiality by signature */
+	/* Verify data integrity by hash */
+	uint8_t hash[HASH_SIZE];
+    crypto_generichash(hash, HASH_SIZE, pkt->data, pkt->length, NULL, 0);
+
+	if (crypto_sign_verify_detached(pkt->signature, hash, HASH_SIZE, kp_from->pk.bin) != 0) {
+		/* Not match */
+		error(0, "Cannot verify data integrity");
+		packet_t *error_pkt = create_packet(ZSM_STA_ERROR_INTEGRITY, ZSM_TYP_ERROR, 0, NULL,
 			create_signature(NULL, 0, NULL));
 		send_packet(error_pkt, fd);
 		free_packet(error_pkt);
-		return NULL;
+		return ZSM_STA_ERROR_INTEGRITY;
     }
-	return pkt;
+	return ZSM_STA_SUCCESS;
 }
 
-/*
- * Encrypt raw with raw_length using to
- * length is set to sum length of random bytes and scrambled data
- */
-uint8_t *encrypt_data(uint8_t *from, uint8_t *to, uint8_t *raw, uint32_t raw_length, uint32_t *length)
-{
-	key_pair *kp_from = get_key_pair(from);
-	key_pair *kp_to = get_key_pair(to);
-
-	uint8_t shared_key[SHARED_SIZE];
-	if (crypto_kx_client_session_keys(shared_key, NULL,
-                                  kp_from->pk.bin, kp_from->sk.bin, kp_to->pk.bin) != 0) {
-		/* Suspicious server public key, bail out */
-		error(0, "Error performing key exchange");
-	}
-
-    uint8_t nonce[NONCE_SIZE];
-    uint32_t encrypted_len = raw_length + ADDITIONAL_SIZE;
-    uint8_t encrypted[encrypted_len];
-    
-    /* Generate random nonce(number used once) */
-    randombytes_buf(nonce, sizeof(nonce));
-    crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, NULL, raw, 
-			raw_length, NULL, 0, NULL, nonce, shared_key);
-    size_t data_len = MAX_NAME * 2 + NONCE_SIZE + encrypted_len;
-    *length = data_len;
-    uint8_t *data = memalloc(data_len * sizeof(uint8_t));
-    memcpy(data, kp_from->sk.username, MAX_NAME);
-    memcpy(data + MAX_NAME, kp_to->sk.username, MAX_NAME);
-    memcpy(data + MAX_NAME * 2, nonce, NONCE_SIZE);
-    memcpy(data + MAX_NAME * 2 + NONCE_SIZE, encrypted, encrypted_len);
-    
-    return data;
-}
-
-/*
- * Should be used by clients
- */
-uint8_t *decrypt_data(packet *pkt)
-{
-    size_t encrypted_len = pkt->length - NONCE_SIZE - MAX_NAME * 2;
-    size_t data_len = encrypted_len - ADDITIONAL_SIZE;
-	uint8_t nonce[NONCE_SIZE], from[MAX_NAME], to[MAX_NAME], encrypted[encrypted_len];
-    uint8_t *decrypted = memalloc((data_len + 1) * sizeof(uint8_t));
-	memcpy(from, pkt->data, MAX_NAME);
-	memcpy(to, pkt->data + MAX_NAME, MAX_NAME);
-    memcpy(nonce, pkt->data + MAX_NAME * 2, NONCE_SIZE);
-    memcpy(encrypted, pkt->data + MAX_NAME * 2 + NONCE_SIZE, encrypted_len);
-       
-	key_pair *kp_from = get_key_pair(from);
-	key_pair *kp_to = get_key_pair(to);
-
-	uint8_t shared_key[SHARED_SIZE];
-	if (crypto_kx_client_session_keys(shared_key, NULL,
-                                  kp_from->pk.bin, kp_from->sk.bin, kp_to->pk.bin) != 0) {
-		/* Suspicious server public key, bail out */
-		error(0, "Error performing key exchange");
-	}
-
-    /* We don't need it anymore */
-    free(pkt->data);
-    if (crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, NULL,
-                                                    NULL, encrypted, 
-                                                    encrypted_len,
-                                                    NULL, 0,
-                                                    nonce, shared_key) != 0) {
-        free(decrypted);
-        error(0, "Cannot decrypt message");
-        return NULL;
-    } else {
-        /* Terminate decrypted message so we don't print random bytes */
-        decrypted[data_len] = '\0';
-		printf("<%s> to <%s>: %s\n", from, to, decrypted);
-		return decrypted;
-    }
-}
-
-
-/*
- * Verify message integrity + confidentiality
- * Verify using public key against hashed message
- */
-int verify_integrity(packet *pkt, public_key *pk)
-{
-    uint8_t hash[HASH_SIZE];
-
-    /* Hash data to check if matches user provided correct signature */
-
-    crypto_generichash(hash, HASH_SIZE,
-                   pkt->data, pkt->length,
-                   NULL, 0);
-
-	if (crypto_sign_verify_detached(pkt->signature, hash, HASH_SIZE, pk->bin) != 0) {
-		/* Not match */
-		error(0, "Cannot verify message integrity");
-        return ZSM_STA_ERROR_INTEGRITY;
-	}
-
-    return ZSM_STA_SUCCESS;
-}
 
 /*
  * Create signature for packet
