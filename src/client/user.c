@@ -28,7 +28,7 @@ void arraylist_free(ArrayList *list)
 /*
  * Check if the user is in the arraylist
  */
-long arraylist_search(ArrayList *list, char *username)
+long arraylist_search(ArrayList *list, uint8_t *username)
 {
     for (long i = 0; i < list->length; i++) {
         if (strcmp(list->items[i].name, username) == 0) {
@@ -55,9 +55,9 @@ void arraylist_remove(ArrayList *list, long index)
 /*
  * Force will not remove duplicate marked users, instead it just skip adding
  */
-void arraylist_add(ArrayList *list, char *name, wchar_t *icon, int color, bool marked, bool force)
+void arraylist_add(ArrayList *list, uint8_t *username, wchar_t *icon, int color, bool marked, bool force)
 {
-    user new_user = { name, icon, color };
+    user new_user = { username, icon, color };
 
     if (list->capacity != list->length) {
         if (marked) {
