@@ -16,5 +16,6 @@
 
 /* UI */
 #define PANEL_HEIGHT 1
+#define TEXTBOX_HEIGHT 1
 
 #define CLIENT_DATA_DIR "~/.local/share/zsm/zen"

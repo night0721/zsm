@@ -20,6 +20,9 @@ long current_selection = 0;
 int current_window = 0;
 int sockfd;
 bool show_icons;
+
+/* For tracking cursor position in content */
+static int curs_pos = 0;
 static char content[MAX_MESSAGE_LENGTH];
 
 void send_message();
@@ -54,7 +57,6 @@ void ncurses_init()
     initscr();
     noecho();
     cbreak();
-    curs_set(0);
     keypad(stdscr, TRUE);
     /* check terminal has colors */
     if (!has_colors()) {
@@ -88,24 +90,26 @@ void windows_init()
     ||              ||             ||
     || content      || content     ||
     || (users)      ||  (chat)     ||
-    ||              ||             ||
+    ||              ||-------------||
     |---------------||-textbox-----||
     +==========panel===============*/
     
-    /*                     lines,                    cols,            y,                    x             */
-    panel =         newwin(PANEL_HEIGHT,             COLS,            LINES - PANEL_HEIGHT, 0              );
-    /* draw border around windows */
-    users_border =  newwin(LINES - PANEL_HEIGHT,     users_width + 2, 0,                    0              );
-    chat_border =   newwin(LINES - PANEL_HEIGHT,     chat_width - 2,  0,                    users_width + 2);
+    /*                     lines,								  cols,            y,						 x             */
+    panel =         newwin(PANEL_HEIGHT,						  COLS,            LINES - PANEL_HEIGHT,	 0              );
+    users_border =  newwin(LINES - PANEL_HEIGHT,				  users_width + 2, 0,						 0              );
+    chat_border =   newwin(LINES - PANEL_HEIGHT - TEXTBOX_HEIGHT, chat_width - 2,  0,						 users_width + 2);
+	textbox =		newwin(TEXTBOX_HEIGHT,						  chat_width - 2,  LINES - PANEL_HEIGHT - TEXTBOX_HEIGHT, users_width + 3);
 
-    users_content = newwin(LINES - PANEL_HEIGHT - 2, users_width,     1,                    1              );
-    textbox =		newwin(1,						 users_width,     LINES - PANEL_HEIGHT - 2, users_width + 3);
-    chat_content =  newwin(LINES - PANEL_HEIGHT - 2, chat_width - 4,  1,                    users_width + 3);
+    /*									 lines,										cols,            y,                    x             */
+    users_content = subwin(users_border, LINES - PANEL_HEIGHT - 2,					users_width,     1,                    1              );
+    chat_content =  subwin(chat_border,  LINES - PANEL_HEIGHT - 2 - TEXTBOX_HEIGHT, chat_width - 4,  1,                    users_width + 3);
     
-    refresh();
+	/* draw border around windows */
+	refresh();
     draw_border(users_border, true);
     draw_border(chat_border, false);
 
+	scrollok(textbox, true);
     scrollok(users_content, true);
     scrollok(chat_content, true);
     refresh();
@@ -129,20 +133,8 @@ void draw_border(WINDOW *window, bool active)
     } else {
         wattron(window, COLOR_PAIR(5));
     }
-    /* draw top border */
-    mvwaddch(window, 0, 0, ACS_ULCORNER);  /* upper left corner */
-    mvwhline(window, 0, 1, ACS_HLINE, COLS - 2); /* top horizontal line */
-    mvwaddch(window, 0, width - 1, ACS_URCORNER); /* upper right corner */
 
-    /* draw side border */
-    mvwvline(window, 1, 0, ACS_VLINE, LINES - 2); /* left vertical line */
-    mvwvline(window, 1, width - 1, ACS_VLINE, LINES - 2); /* right vertical line */
-
-    /* draw bottom border
-     * make space for the panel */
-    mvwaddch(window, LINES - PANEL_HEIGHT - 1, 0, ACS_LLCORNER); /* lower left corner */
-    mvwhline(window, LINES - PANEL_HEIGHT - 1, 1, ACS_HLINE, width - 2); /* bottom horizontal line */
-    mvwaddch(window, LINES - PANEL_HEIGHT - 1, width - 1, ACS_LRCORNER); /* lower right corner */
+	box(window, 0, 0);
 
     /* turn color off after turning it on */
     if (active) {
@@ -263,6 +255,7 @@ void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t
 	msg->creation = creation;
 	num_messages++;
 }
+
 /*
  * Add message to chat window
  * user_color is the color defined above at ncurses_init
@@ -322,32 +315,35 @@ void add_username(char *username)
 
 void get_chatbox_content(int ch)
 {
-	/* For tracking position in content */
-	static int pos = 0;
-
     if (ch == KEY_BACKSPACE || ch == 127) {
-        if (pos > 0) {
-            pos--;
-            content[pos] = '\0';
+        if (curs_pos > 0) {
+            curs_pos--;
+            content[curs_pos] = '\0';
         }
     }
 	/* Input done */
     else if (ch == '\n') {
-		content[pos++] = ch;
-        content[pos++] = '\0';
+		content[curs_pos++] = ch;
+        content[curs_pos++] = '\0';
 		send_message();
 		/* Reset for new input */
-        pos = 0; 
+        curs_pos = 0; 
+
+		/* Set content[0] for printing purposes */
+		content[curs_pos] = '\0';
     }
     /* Append it to the content if it is normal character */
-    else if (pos < MAX_MESSAGE_LENGTH - 1) {
-        content[pos++] = ch;
-        content[pos] = '\0';
+    else if (curs_pos < MAX_MESSAGE_LENGTH - 1) {
+		/* Filter readable ASCII */
+		if (ch > 31 && ch < 127) {
+			content[curs_pos++] = ch;
+			content[curs_pos] = '\0';
+		}
     }
 
     /* Display the current content */
-    mvwprintw(textbox, 0, 0, "%s", content);
-    wrefresh(textbox);
+	mvwprintw(textbox, 0, 0, "> %s", content);
+	wrefresh(textbox);
 }
 
 void send_message()
@@ -425,6 +421,14 @@ void ui(int fd)
             error(1, "Terminal size needs to be at least 80x24");
         }
 		*/
+		if (current_window == CHAT_WINDOW) {
+			wclear(textbox);
+			mvwprintw(textbox, 0, 0, "> %s", content);
+			wrefresh(textbox);
+			curs_set(2);
+		} else {
+			curs_set(0);
+		}
 		ch = getch();
 		switch (ch) {
 			case CTRLD:
@@ -461,9 +465,6 @@ void ui(int fd)
 					draw_border(chat_border, true);
 					draw_border(users_border, false);
 				}
-				/* Need to reprint everything after drawing border */
-				highlight_current_line();
-
 				break;
 
 			default:
