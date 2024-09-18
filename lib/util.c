@@ -25,7 +25,7 @@ void error(int fatal, const char *fmt, ...)
     vsnprintf(errorstr, error_len + 1, fmt, args);
     fprintf(stderr, "[zsm] ");
 
-    if (errsv != 0) {
+    if (errsv != 0 && errsv != EEXIST) {
         perror(errorstr);
         errno = 0;
     } else {
@@ -54,18 +54,6 @@ void *estrdup(void *str)
         return NULL;
     }
     return modstr;
-}
-
-/*
- * Set socket to non blocking so epoll can use EPOLLET flag
- */
-int set_nonblocking(int fd)
-{
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        return -1;
-    }
-    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
 /*
