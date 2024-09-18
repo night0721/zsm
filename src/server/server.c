@@ -2,6 +2,7 @@
 #include "util.h"
 #include "config.h"
 #include "notification.h"
+#include "server/server.h"
 
 typedef struct client_t {
 	int fd; /* File descriptor for client socket */
@@ -20,7 +21,6 @@ thread_t threads[MAX_THREADS];
 int num_thread = 0;
 
 void *thread_worker(void *arg);
-int set_nonblocking(int fd);
 
 /*
  * Authenticate client before starting communication
@@ -34,7 +34,7 @@ int authenticate_client(int clientfd, uint8_t *username)
     /* Sending fake signature as structure requires it */
     uint8_t *fake_sig =	create_signature(NULL, 0, NULL);
 
-    packet *auth_pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
+    packet_t *auth_pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
 			challenge, fake_sig);
     if (send_packet(auth_pkt, clientfd) != ZSM_STA_SUCCESS) {
         /* fd already closed */
@@ -45,7 +45,7 @@ int authenticate_client(int clientfd, uint8_t *username)
     }
     free(fake_sig);
 
-    packet client_auth_pkt;
+    packet_t client_auth_pkt;
     int status;
     if ((status = recv_packet(&client_auth_pkt, clientfd, ZSM_TYP_AUTH)
 				!= ZSM_STA_SUCCESS)) {
@@ -62,7 +62,7 @@ int authenticate_client(int clientfd, uint8_t *username)
         free(client_auth_pkt.data);
         goto failure;
     } else {
-        packet *ok_pkt = create_packet(ZSM_STA_AUTHORISED, ZSM_TYP_INFO
+        packet_t *ok_pkt = create_packet(ZSM_STA_AUTHORISED, ZSM_TYP_INFO
 				, 0, NULL, NULL);
 		send_packet(ok_pkt, clientfd);
         free_packet(ok_pkt);
@@ -70,7 +70,7 @@ int authenticate_client(int clientfd, uint8_t *username)
         return ZSM_STA_SUCCESS;
     }
 failure:;
-	packet *error_pkt = create_packet(ZSM_STA_UNAUTHORISED, ZSM_TYP_ERROR,
+	packet_t *error_pkt = create_packet(ZSM_STA_UNAUTHORISED, ZSM_TYP_ERROR,
 			0, NULL, create_signature(NULL, 0, NULL));
 
     send_packet(error_pkt, clientfd);
@@ -88,15 +88,27 @@ void signal_handler(int signal)
         case SIGABRT:
         case SIGINT:
         case SIGTERM:
-            notify_uninit();
             error(1, "Shutdown signal received");
             break;
     }
 }
 
+int get_clientfd(uint8_t *username)
+{
+	for (int i = 0; i < MAX_THREADS; i++) {
+		thread_t thread = threads[i];
+		for (int j = 0; j < thread.num_clients; j++) {
+			client_t client = thread.clients[j];
+			if (strncmp(client.username, username, MAX_NAME) == 0) {
+				return client.fd;
+			}
+		}
+	}
+	return -1;
+}
 /*
- * Takes thread_t as argument to use its epoll instance to wait new messages
- * Thread worker to relay messages
+ * Takes thread_t as argument to use its epoll instance to wait new pakcets
+ * Thread worker to relay packets
  */
 void *thread_worker(void *arg)
 {
@@ -112,25 +124,22 @@ void *thread_worker(void *arg)
             client_t *client = (client_t *) events[i].data.ptr;
 
             if (events[i].events & EPOLLIN) {
-				/* handle message */
-				packet pkt;
-				packet *verified_pkt = verify_packet(&pkt, client->fd);
-				if (verified_pkt == NULL) {
+				/* Handle packet */
+				packet_t pkt;
+				if (verify_packet(&pkt, client->fd) == 0) {
 					error(0, "Error verifying packet");
 				}
 				
 				/* Message relay */
 				uint8_t to[MAX_NAME];
-				memcpy(to, verified_pkt->data + MAX_NAME, MAX_NAME);
-				
-				for (int i = 0; i < MAX_THREADS; i++) {
-					thread_t thread = threads[i];
-					for (int j = 0; j < thread.num_clients; j++) {
-						client_t client = thread.clients[j];
-						if (strcmp(client.username, to) == 0) {
-							error(0, "Relaying message to %s", client.username);
-							send_packet(verified_pkt, client.fd);
-						}
+				memcpy(to, pkt.data + MAX_NAME, MAX_NAME);
+				if (to[0] != '\0') {
+					int fd = get_clientfd(to);
+					if (fd != -1) {
+						error(0, "Relaying packet to %s", to);
+						send_packet(&pkt, fd);
+					} else {
+						error(0, "%s not found", to);
 					}
 				}
 			}
@@ -143,10 +152,7 @@ int main()
     if (sodium_init() < 0) {
         error(1, "Error initializing libsodium");
     }
-    /* Init libnotify with app name */
-    if (notify_init("zsm") < 0) {
-        error(1, "Error initializing libnotify");
-    }
+    
     signal(SIGPIPE, signal_handler);
     signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
@@ -234,15 +240,6 @@ int main()
 			error(0, "Error authenticating with client");
 			continue;
 		}
-
-		/* To use EPOLLET, an nonblocking fd is required */
-		/*
-		if (set_nonblocking(clientfd) == -1) {
-            perror("Failed to set client socket to non-blocking");
-            close(clientfd);
-            continue;
-        }
-		*/
 
         /* Add the new client to the thread's epoll instance */
         struct epoll_event event;
