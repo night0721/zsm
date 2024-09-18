@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <string.h>
-
 #include "config.h"
 #include "packet.h"
 #include "util.h"
@@ -8,20 +5,26 @@
 #include "client/db.h"
 #include "client/user.h"
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName)
+static int callback(void *ignore, int argc, char **argv, char **azColName)
 {
-    char *username = memalloc(32 * sizeof(char));
+    char *username = memalloc(MAX_NAME * sizeof(char));
 	strcpy(username, argv[0]);
-	add_username(username);
+	/* Add only if it isn't talking yourself */
+	if (strncmp(username, USERNAME, MAX_NAME))
+		add_username(username);
 
-    /*
-    for(int i = 0; i < argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    }
-    printf("\n");
-    */
     return 0;
 }
+
+static int get_shared_key(void *ignore, int argc, char **argv, char **column)
+{
+    for(int i = 0; i < argc; i++) {
+        printf("%s = %s\n", column[i], argv[i] ? argv[i] : "NULL");
+    }
+    printf("\n");
+    return 0;
+}
+
 
 int sqlite_init()
 {
@@ -36,7 +39,8 @@ int sqlite_init()
         return 1;
     }
     
-    char *users_statement = "CREATE TABLE IF NOT EXISTS Users(Username TEXT, SecretKey TEXT, Test TEXT);";
+    char *users_statement = "CREATE TABLE IF NOT EXISTS Users(Username TEXT, SharedKey TEXT, Test TEXT);";
+    char *shared_key_statement = "SELECT * FROM Users;";
     char *messages_statement = "CREATE TABLE IF NOT EXISTS Messages(Username TEXT, );";
                 //"INSERT INTO Users VALUES('night', 'test', '1');";
 
@@ -50,10 +54,9 @@ int sqlite_init()
     }
 
     // Select and print all entries
-    const char* data = "Callback function called";
-    rc = sqlite3_exec(db, "SELECT * FROM Users", callback, (void*) data, &err_msg);
+    rc = sqlite3_exec(db, "SELECT * FROM Users", callback, NULL, &err_msg);
     
-    if (rc != SQLITE_OK ) {
+    if (rc != SQLITE_OK) {
         error(0, "SQL error: %s\n", err_msg);
         sqlite3_free(err_msg);        
     }
