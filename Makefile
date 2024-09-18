@@ -10,6 +10,7 @@ MANPAGE = $(TARGET).1
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 MANDIR = $(PREFIX)/share/man/man1
+username ?= default
 
 # Flags
 LDFLAGS = $(shell pkg-config --libs libsodium libnotify ncurses sqlite3)
@@ -28,7 +29,7 @@ $(SERVER): $(SERVERSRC) $(LIBSRC)
 
 $(CLIENT): $(CLIENTSRC) $(LIBSRC)
 	mkdir -p bin
-	$(CC) $(CLIENTSRC) $(LIBSRC) $(INCLUDE) -o bin/$@ $(CFLAGS) $(LDFLAGS)
+	$(CC) $(CLIENTSRC) $(LIBSRC) $(INCLUDE) -DUSERNAME=\"$(username)\" -o bin/$@-$(username) $(CFLAGS) $(LDFLAGS)
 
 dist:
 	mkdir -p $(TARGET)-$(VERSION)
@@ -54,8 +55,5 @@ uninstall:
 
 clean:
 	$(RM) $(SERVER) $(CLIENT)
-
-run:
-	./bin/zen
 
 .PHONY: all dist install uninstall clean
