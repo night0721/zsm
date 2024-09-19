@@ -239,9 +239,6 @@ void highlight_current_line()
     wrefresh(panel);
     /* show chat conversation every time cursor changes */
     show_chat(users->items[current_selection].name);
-    #if DRAW_BORDERS
-        draw_border_title(preview_border, true);
-    #endif
     wrefresh(chat_content);
 }
 
