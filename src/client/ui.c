@@ -255,23 +255,161 @@ void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t
 
 /*
  * Add message to chat window
+ * if flag is 1, print date as well
  * user_color is the color defined above at ncurses_init
  */
-void print_message(message_t *msg, int user_color)
+void print_message(int flag, message_t *msg, int user_color)
 {
     struct tm *timeinfo = localtime(&msg->creation);
     char buffer[21];
-    strftime(buffer, sizeof(buffer), "%b %d %Y %H:%M:%S", timeinfo);
-
+	if (flag) {
+		strftime(buffer, sizeof(buffer), "%b %d %Y %H:%M:%S", timeinfo);
+	} else {
+		strftime(buffer, sizeof(buffer), "%H:%M:%S", timeinfo);
+	}
 	wprintw(chat_content, "%s ", buffer);
+
 	wattron(chat_content, A_BOLD);
 	wattron(chat_content, COLOR_PAIR(user_color));
-
 	wprintw(chat_content, "<%s> ", msg->author);
-
 	wattroff(chat_content, A_BOLD);
 	wattroff(chat_content, COLOR_PAIR(user_color));
-	wprintw(chat_content, "%s", msg->content);	
+
+    int i = 0;
+    int n = strlen(msg->content);
+    int in_bold = 0, in_italic = 0, in_underline = 0, in_block = 0;
+
+    while (i < n) {
+        /* Bold */
+        if (msg->content[i] == '*' && msg->content[i + 1] == '*') {
+            if (!in_bold) {
+                /* Look ahead for the matching closing delimiter */
+				int closing_pos = i + 2;
+				while (closing_pos < n && !(msg->content[closing_pos] == '*' && msg->content[closing_pos + 1] == '*')) {
+					closing_pos++;
+				}
+				if (closing_pos < n) {
+                    wattron(chat_content, A_BOLD);
+                    in_bold = 1;
+				} else {
+					/* Treat as regular text if closing delimiter */
+					waddch(chat_content, msg->content[i++]);
+				}
+			} else {
+				wattroff(chat_content, A_BOLD);
+                in_bold = 0;
+			}
+			/* Skip */
+			i += 2;
+
+		/* Italic */
+        } else if (msg->content[i] == '*') {
+            if (!in_italic) {
+                /* Look ahead for the matching closing delimiter */
+                int closing_pos = i + 1;
+                while (closing_pos < n && msg->content[closing_pos] != '*') {
+                    closing_pos++;
+                }
+                if (closing_pos < n) {
+                    wattron(chat_content, A_ITALIC);
+                    in_italic = 1;
+                } else {
+					/* Treat as regular text if closing delimiter */
+                    waddch(chat_content, msg->content[i++]);
+                }
+            } else {
+                wattroff(chat_content, A_ITALIC);
+                in_italic = 0;
+            }
+			/* Skip */
+			i += 1;
+
+		/* Underline */
+        } else if (msg->content[i] == '_') {
+            if (!in_underline) {
+                /* Look ahead for the matching closing delimiter */
+                int closing_pos = i + 1;
+                while (closing_pos < n && msg->content[closing_pos] != '_') {
+                    closing_pos++;
+                }
+                if (closing_pos < n) {
+                    wattron(chat_content, A_UNDERLINE);
+                    in_underline = 1;
+                } else {
+					/* Treat as regular text if closing delimiter */
+                    waddch(chat_content, msg->content[i++]);
+                }
+            } else {
+                wattroff(chat_content, A_UNDERLINE);
+                in_underline = 0;
+            }
+			/* Skip */
+			i += 1;
+
+		/* Block */
+        } else if (msg->content[i] == '`') {
+            if (!in_block) {
+                /* Look ahead for the matching closing delimiter */
+                int closing_pos = i + 1;
+                while (closing_pos < n && msg->content[closing_pos] != '`') {
+                    closing_pos++;
+                }
+                if (closing_pos < n) {
+                    wattron(chat_content, A_STANDOUT);
+                    in_block = 1;
+                } else {
+					/* Treat as regular text if closing delimiter */
+                    waddch(chat_content, msg->content[i++]);
+                }
+            } else {
+                wattroff(chat_content, A_STANDOUT);
+                in_block = 0;
+            }
+			/* Skip */
+			i += 1; 
+
+		/* Allow escape sequence for genuine backslash */
+		} else if (msg->content[i] == '\\' && msg->content[i + 1] == '\\') {
+			/* Print a literal backslash */
+            waddch(chat_content, '\\');
+			/* Skip both backslashes */
+            i += 2;
+
+		/* Color, new line and tab */
+        } else if (msg->content[i] == '\\') {
+			/* Skip the backslash and check the next character */
+            i++;
+            /* Handle color codes \1 to \8 */
+            if (msg->content[i] >= '1' && msg->content[i] <= '8') {
+				/* Convert char to int */
+                int color_pair = msg->content[i] - '0';
+                wattron(chat_content, COLOR_PAIR(color_pair));
+				/* Skip the color code character */
+                i++;
+
+            /* Handle new line */
+            } else if (msg->content[i] == 'n') {
+                waddch(chat_content, '\n');
+				/* Skip the 'n' */
+                i++;
+
+            } else {
+                /* Invalid sequence, just print the backslash and character */
+                waddch(chat_content, '\\');
+                waddch(chat_content, msg->content[i]);
+                i++;
+            }
+		} else {
+            /* Print regular character */ 
+            waddch(chat_content, msg->content[i]);
+            i++;
+        }
+	}
+    /* Ensure attributes are turned off after printing */
+    wattroff(chat_content, A_BOLD);
+    wattroff(chat_content, A_ITALIC);
+    wattroff(chat_content, A_UNDERLINE);
+	wattroff(chat_content, A_STANDOUT);
 }
 
 /*
@@ -285,19 +423,28 @@ void show_chat(uint8_t *recipient)
 		if (message.content == NULL) continue;
 		/* Find messages from recipient to client or vice versa */
 		/* outgoing = 1, incoming = 2 */
+		/* if message to print is older than previous message by a day,
+		 * enable flag in print_message to include date */
+		int print_date = 0;
+		if (i > 0 && messages[i - 1].content != NULL && message.creation >= messages[i - 1].creation + 86400) {
+			print_date = 1;
+		}
 		if (strncmp(message.author, USERNAME, MAX_NAME) == 0 &&
 				strncmp(message.recipient, recipient, MAX_NAME) == 0) {
-			print_message(&message, 1);
+			print_message(print_date, &message, 1);
 			continue;
 		}
 			
 		if (strncmp(message.author, recipient, MAX_NAME) == 0 &&
 				strncmp(message.recipient, USERNAME, MAX_NAME) == 0) {
-			print_message(&message, 2);
+			print_message(print_date, &message, 2);
 			continue;
 		}
 	}
 	wrefresh(chat_content);
+	/* after printing move cursor back to textbox */
+	wmove(textbox, 0, curs_pos + 2);
+	wrefresh(textbox);
 }
 /*
  * Require heap allocated username
@@ -327,7 +474,7 @@ void get_chatbox_content(int ch)
         curs_pos = 0; 
 
 		/* Set content[0] for printing purposes */
-		content[curs_pos] = '\0';
+		content[0] = '\0';
     }
     /* Append it to the content if it is normal character */
     else if (curs_pos < MAX_MESSAGE_LENGTH - 1) {
@@ -389,7 +536,7 @@ void send_message()
 	}
 	add_message(USERNAME, recipient, content, content_len, time(NULL));
 	free_packet(pkt);
-	highlight_current_line();
+	show_chat(recipient);
 }
 
 /*
@@ -422,6 +569,7 @@ void ui(int fd)
 			wclear(textbox);
 			mvwprintw(textbox, 0, 0, "> %s", content);
 			wrefresh(textbox);
+			wmove(textbox, 0, curs_pos + 2);
 			curs_set(2);
 		} else {
 			curs_set(0);
@@ -464,12 +612,18 @@ void ui(int fd)
 				}
 				break;
 
+			case CLEAR_INPUT:
+				if (current_window == CHAT_WINDOW) {
+					curs_pos = 0;
+					content[0] = '\0';
+				}
 			default:
 				if (current_window == CHAT_WINDOW)
 					get_chatbox_content(ch);
 
 		}
     }
+
 cleanup:
 	arraylist_free(users);
 	arraylist_free(marked);

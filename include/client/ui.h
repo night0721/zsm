@@ -6,10 +6,11 @@
 #define USERS_WINDOW 0
 #define CHAT_WINDOW 1
 
-/* Keybindings */
+/* Key code */
 #define CTRLA 0x01
 #define CTRLD 0x04
 #define CTRLE 0x05
+#define CTRLX 0x18
 #define DOWN 0x102
 #define UP 0x103
 #define LEFT 0x104
