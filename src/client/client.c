@@ -14,12 +14,13 @@ int sockfd;
  */
 int authenticate_server(keypair_t *kp)
 {
-    packet_t server_auth_pkt;
+	/* create empty packet */
+    packet_t *pkt = create_packet(0, 0, 0, NULL, NULL);
     int status;
-    if ((status = recv_packet(&server_auth_pkt, sockfd, ZSM_TYP_AUTH) != ZSM_STA_SUCCESS)) {
+    if ((status = recv_packet(pkt, sockfd, ZSM_TYP_AUTH) != ZSM_STA_SUCCESS)) {
         return status;
     }
-    uint8_t *challenge = server_auth_pkt.data;
+    uint8_t *challenge = pkt->data;
     
     uint8_t *sig = memalloc(SIGN_SIZE);
     crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk.raw);
@@ -27,17 +28,24 @@ int authenticate_server(keypair_t *kp)
 	uint8_t *pk_full = memalloc(PK_SIZE);
 	memcpy(pk_full, kp->pk.full, PK_SIZE);
 
-    packet_t *auth_pkt = create_packet(1, ZSM_TYP_AUTH, SIGN_SIZE, pk_full, sig);
-    if ((status = send_packet(auth_pkt, sockfd)) != ZSM_STA_SUCCESS) {
+	pkt->status = 1;
+	pkt->type = ZSM_TYP_AUTH;
+	pkt->length = SIGN_SIZE;
+	pkt->data = pk_full;
+	pkt->signature = sig;
+    if ((status = send_packet(pkt, sockfd)) != ZSM_STA_SUCCESS) {
         /* fd already closed */
         error(0, "Could not authenticate with server, status: %d", status);
-        free_packet(auth_pkt);
+        free_packet(pkt);
         return ZSM_STA_ERROR_AUTHENTICATE;
     }
 
-    free_packet(auth_pkt);
-	status = recv_packet(auth_pkt, sockfd, ZSM_TYP_INFO);
-	return (response.status == ZSM_STA_AUTHORISED ?  ZSM_STA_SUCCESS : ZSM_STA_ERROR_AUTHENTICATE);
+	if ((status = recv_packet(pkt, sockfd, ZSM_TYP_INFO)) != ZSM_STA_SUCCESS) {
+		return status;
+	};
+	status = pkt->status;
+	free_packet(pkt);
+	return (status == ZSM_STA_AUTHORISED ?  ZSM_STA_SUCCESS : ZSM_STA_ERROR_AUTHENTICATE);
 }
 
 /*
