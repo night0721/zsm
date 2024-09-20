@@ -66,8 +66,8 @@ void *receive_worker(void *arg)
 
     while (1) {
 		packet_t pkt;
-        if (verify_packet(&pkt, sockfd) == 0) {
-            error(0, "Error verifying packet");
+        if (verify_packet(&pkt, sockfd) != ZSM_STA_SUCCESS) {
+			error(0, "Error verifying packet");
         }
 		size_t cipher_len = pkt.length - NONCE_SIZE - MAX_NAME * 2;
 		size_t data_len = cipher_len - ADDITIONAL_SIZE;

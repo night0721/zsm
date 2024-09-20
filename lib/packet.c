@@ -211,8 +211,13 @@ void free_packet(packet_t *pkt)
  */
 int verify_packet(packet_t *pkt, int fd)
 {
-	if (recv_packet(pkt, fd, ZSM_TYP_MESSAGE) != ZSM_STA_SUCCESS) {
+	int status = recv_packet(pkt, fd, ZSM_TYP_MESSAGE);
+	if (status != ZSM_STA_SUCCESS) {
 		close(fd);
+		if (status == ZSM_STA_CLOSED_CONNECTION) {
+				error(1, "Server closed connection");
+		}
+
 		return ZSM_STA_ERROR_INTEGRITY;
 	}
 

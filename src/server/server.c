@@ -34,43 +34,43 @@ int authenticate_client(int clientfd, uint8_t *username)
     /* Sending fake signature as structure requires it */
     uint8_t *fake_sig =	create_signature(NULL, 0, NULL);
 
-    packet_t *auth_pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
+    packet_t *pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
 			challenge, fake_sig);
-    if (send_packet(auth_pkt, clientfd) != ZSM_STA_SUCCESS) {
+    if (send_packet(pkt, clientfd) != ZSM_STA_SUCCESS) {
         error(0, "Could not authenticate client");
         goto failure;
     }
     free(fake_sig);
 
-    packet_t client_auth_pkt;
     int status;
-    if ((status = recv_packet(&client_auth_pkt, clientfd, ZSM_TYP_AUTH)
+    if ((status = recv_packet(pkt, clientfd, ZSM_TYP_AUTH)
 				!= ZSM_STA_SUCCESS)) {
         error(0, "Could not authenticate client");
         goto failure;
     }
 
 	uint8_t pk_bin[PK_RAW_SIZE], pk_username[MAX_NAME];
-	memcpy(pk_bin, client_auth_pkt.data, PK_RAW_SIZE);
-	memcpy(pk_username, client_auth_pkt.data + PK_RAW_SIZE, MAX_NAME);
+	memcpy(pk_bin, pkt->data, PK_RAW_SIZE);
+	memcpy(pk_username, pkt->data + PK_RAW_SIZE, MAX_NAME);
 
-    if (crypto_sign_verify_detached(client_auth_pkt.signature, challenge, CHALLENGE_SIZE, pk_bin) != 0) {
-		free_packet(auth_pkt);
+    if (crypto_sign_verify_detached(pkt->signature, challenge, CHALLENGE_SIZE, pk_bin) != 0) {
+		free_packet(pkt);
         error(0, "Incorrect signature, could not authenticate client");
-        free(client_auth_pkt.data);
         goto failure;
     } else {
-        packet_t *ok_pkt = create_packet(ZSM_STA_AUTHORISED, ZSM_TYP_INFO
-				, 0, NULL, NULL);
-		send_packet(ok_pkt, clientfd);
-        free_packet(ok_pkt);
+		pkt->status = ZSM_STA_AUTHORISED;
+		pkt->type = ZSM_TYP_INFO;
+		pkt->length = 0;
+		pkt->data = NULL;
+		pkt->signature = NULL;
+		send_packet(pkt, clientfd);
+        free_packet(pkt);
 		strcpy(username, pk_username);
         return ZSM_STA_SUCCESS;
     }
 failure:;
 	packet_t *error_pkt = create_packet(ZSM_STA_UNAUTHORISED, ZSM_TYP_ERROR,
 			0, NULL, create_signature(NULL, 0, NULL));
-
     send_packet(error_pkt, clientfd);
     free_packet(error_pkt);
     close(clientfd);
