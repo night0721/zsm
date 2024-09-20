@@ -22,6 +22,7 @@ void draw_border(WINDOW *window, bool active);
 void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t length, time_t creation);
 void show_chat(uint8_t *recipient);
 void add_username(char *username);
+void ncurses_deinit();
 void ui();
 
 #endif

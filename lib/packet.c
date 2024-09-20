@@ -214,11 +214,7 @@ int verify_packet(packet_t *pkt, int fd)
 	int status = recv_packet(pkt, fd, ZSM_TYP_MESSAGE);
 	if (status != ZSM_STA_SUCCESS) {
 		close(fd);
-		if (status == ZSM_STA_CLOSED_CONNECTION) {
-				error(1, "Server closed connection");
-		}
-
-		return ZSM_STA_ERROR_INTEGRITY;
+		return status;
 	}
 
 	uint8_t from[MAX_NAME], to[MAX_NAME];

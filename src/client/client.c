@@ -66,7 +66,12 @@ void *receive_worker(void *arg)
 
     while (1) {
 		packet_t pkt;
-        if (verify_packet(&pkt, sockfd) != ZSM_STA_SUCCESS) {
+		int status = verify_packet(&pkt, sockfd);
+        if (status != ZSM_STA_SUCCESS) {
+			if (status == ZSM_STA_CLOSED_CONNECTION) {
+				ncurses_deinit();
+				error(1, "Server closed connection");
+			}
 			error(0, "Error verifying packet");
         }
 		size_t cipher_len = pkt.length - NONCE_SIZE - MAX_NAME * 2;

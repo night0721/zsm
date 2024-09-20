@@ -539,6 +539,13 @@ void send_message()
 	show_chat(recipient);
 }
 
+void ncurses_deinit()
+{
+	arraylist_free(users);
+	arraylist_free(marked);
+	endwin();
+}
+
 /*
  * Main loop of user interface
  */
@@ -577,7 +584,8 @@ void ui(int fd)
 		ch = getch();
 		switch (ch) {
 			case CTRLD:
-				goto cleanup;
+				ncurses_deinit();
+				break;
 
 			/* go up by k or up arrow */
             case UP:
@@ -617,16 +625,12 @@ void ui(int fd)
 					curs_pos = 0;
 					content[0] = '\0';
 				}
+
 			default:
 				if (current_window == CHAT_WINDOW)
 					get_chatbox_content(ch);
 
 		}
     }
-
-cleanup:
-	arraylist_free(users);
-	arraylist_free(marked);
-	endwin();
 	return;
 }
