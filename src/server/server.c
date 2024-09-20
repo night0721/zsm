@@ -69,10 +69,12 @@ int authenticate_client(int clientfd, uint8_t *username)
         return ZSM_STA_SUCCESS;
     }
 failure:;
+		/*
 	packet_t *error_pkt = create_packet(ZSM_STA_UNAUTHORISED, ZSM_TYP_ERROR,
 			0, NULL, create_signature(NULL, 0, NULL));
     send_packet(error_pkt, clientfd);
     free_packet(error_pkt);
+	*/
     close(clientfd);
     return ZSM_STA_ERROR_AUTHENTICATE;
 }
@@ -124,8 +126,15 @@ void *thread_worker(void *arg)
             if (events[i].events & EPOLLIN) {
 				/* Handle packet */
 				packet_t pkt;
-				if (verify_packet(&pkt, client->fd) == 0) {
-					error(0, "Error verifying packet");
+				int status = verify_packet(&pkt, client->fd);
+				if (status != ZSM_STA_SUCCESS) {
+					if (status == ZSM_STA_CLOSED_CONNECTION) {
+						/* TODO: Remove client from thread */
+						error(0, "Client closed connection");
+					} else {
+						error(0, "Error verifying packet");
+					}
+					continue;
 				}
 				
 				/* Message relay */
