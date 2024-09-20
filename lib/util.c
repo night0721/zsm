@@ -152,7 +152,7 @@ void write_log(int type, const char *fmt, ...)
     va_end(args);
 }
 
-void print_bin(const unsigned char *ptr, size_t length)
+void print_bin(const uint8_t *ptr, size_t length)
 {
     for (size_t i = 0; i < length; i++) {
         printf("%02x ", ptr[i]);

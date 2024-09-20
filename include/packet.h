@@ -74,7 +74,7 @@ typedef struct message_t {
 
 /* Utilities functions */
 int recv_packet(packet_t *pkt, int fd, uint8_t required_type);
-packet_t *create_packet(uint8_t option, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature);
+packet_t *create_packet(uint8_t status, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature);
 int send_packet(packet_t *msg, int fd);
 void free_packet(packet_t *msg);
 int verify_packet(packet_t *pkt, int fd);
