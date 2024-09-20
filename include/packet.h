@@ -47,6 +47,7 @@
 #define ZSM_STA_ERROR_INTEGRITY 0xC
 #define ZSM_STA_UNAUTHORISED 0xD
 #define ZSM_STA_AUTHORISED 0xE
+#define ZSM_STA_CLOSED_CONNECTION 0xF
 
 #define ADDRESS_SIZE MAX_NAME + 1 + 255 /* 1 for @, 255 for domain, defined in RFC 5321, Section 4.5.3.1.2 */
 #define HASH_SIZE crypto_generichash_BYTES
@@ -72,7 +73,6 @@ typedef struct message_t {
 #include "key.h"
 
 /* Utilities functions */
-void print_packet(packet_t *msg);
 int recv_packet(packet_t *pkt, int fd, uint8_t required_type);
 packet_t *create_packet(uint8_t option, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature);
 int send_packet(packet_t *msg, int fd);
