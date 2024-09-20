@@ -31,7 +31,14 @@ int sqlite_init()
     sqlite3 *db;
     char *err_msg = 0;
     
-    int rc = sqlite3_open(DATABASE_NAME, &db);
+	char *zen_db = memalloc(PATH_MAX);
+	snprintf(zen_db, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "zen.db");
+	if (access(zen_db, W_OK) != 0) {
+		/* If log file doesn't exist, most likely data dir won't exist too */
+		create_data_dir();
+	}
+
+    int rc = sqlite3_open(zen_db, &db);
     
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));

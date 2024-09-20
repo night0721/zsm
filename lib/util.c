@@ -123,16 +123,24 @@ void mkdir_p(const char *destdir)
     return;
 }
 
+void create_data_dir()
+{
+	char *client_data_dir = estrdup(CLIENT_DATA_DIR);
+	mkdir_p(client_data_dir);
+	client_data_dir = replace_home(client_data_dir);
+	free(client_data_dir);
+}
+
 void write_log(int type, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-	char *client_data_dir = estrdup(CLIENT_DATA_DIR);
-	mkdir_p(client_data_dir);
-	client_data_dir = replace_home(client_data_dir);
 	char *client_log = memalloc(PATH_MAX);
-	snprintf(client_log, PATH_MAX, "%s/%s", client_data_dir, "zen.log");
-	free(client_data_dir);
+	snprintf(client_log, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "zen.log");
+	if (access(client_log, W_OK) != 0) {
+		/* If log file doesn't exist, most likely data dir won't exist too */
+		create_data_dir();
+	}
 	FILE *log = fopen(client_log, "a");
 	if (log != NULL) {
 		time_t now = time(NULL);

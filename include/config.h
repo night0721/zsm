@@ -3,7 +3,6 @@
 
 #define PORT 20247
 #define MAX_NAME 32 /* Max username length */
-#define DATABASE_NAME "test.db"
 #define MAX_DATA_LENGTH 8192
 
 /* Don't touch unless you know what you are doing */

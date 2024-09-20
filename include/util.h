@@ -11,6 +11,7 @@ void *memalloc(size_t size);
 void *estrdup(void *str);
 char *replace_home(char *str);
 void mkdir_p(const char *destdir);
+void create_data_dir();
 void write_log(int type, const char *fmt, ...);
 void print_bin(const unsigned char *ptr, size_t length);
 
