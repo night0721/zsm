@@ -1,6 +1,4 @@
 /* Server */
-#define DEBUG 0
-
 #define PORT 20247
 #define MAX_NAME 32 /* Max username length */
 #define MAX_DATA_LENGTH 8192

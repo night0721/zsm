@@ -261,13 +261,13 @@ void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t
 void print_message(int flag, message_t *msg, int user_color)
 {
     struct tm *timeinfo = localtime(&msg->creation);
-    char buffer[21];
+    char timestr[21];
 	if (flag) {
-		strftime(buffer, sizeof(buffer), "%b %d %Y %H:%M:%S", timeinfo);
+		strftime(timestr, sizeof(timestr), "%b %d %Y %H:%M:%S", timeinfo);
 	} else {
-		strftime(buffer, sizeof(buffer), "%H:%M:%S", timeinfo);
+		strftime(timestr, sizeof(timestr), "%H:%M:%S", timeinfo);
 	}
-	wprintw(chat_content, "%s ", buffer);
+	wprintw(chat_content, "%s ", timestr);
 
 	wattron(chat_content, A_BOLD);
 	wattron(chat_content, COLOR_PAIR(user_color));

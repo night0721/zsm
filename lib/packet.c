@@ -1,6 +1,9 @@
 #include "packet.h"
 #include "key.h"
 #include "util.h"
+#include "server/server.h"
+
+int debug;
 
 /*
  * Requires manually free packet data
@@ -30,12 +33,12 @@ int recv_packet(packet_t *pkt, int fd, uint8_t required_type)
     memcpy(&pkt->type, &header[sizeof(pkt->status)], sizeof(pkt->type));
     memcpy(&pkt->length, &header[sizeof(pkt->status) + sizeof(pkt->type)], sizeof(pkt->length));
 
-    #if DEBUG == 1
-        printf("==========PACKET RECEIVED========\n");
-        printf("Status: %d\n", pkt->status);
-        printf("Type: %d\n", pkt->type);
-        printf("Length: %d\n", pkt->length);
-    #endif
+	if (debug) {
+		printf("==========PACKET RECEIVED========\n");
+		printf("Status: %d\n", pkt->status);
+		printf("Type: %d\n", pkt->type);
+		printf("Length: %d\n", pkt->length);
+	}
 
     /* Validate the packet type and length */
     if (pkt->type > 0xFF || pkt->type < 0x0 || pkt->type != required_type) {
@@ -78,16 +81,16 @@ int recv_packet(packet_t *pkt, int fd, uint8_t required_type)
 		/* Null terminate data so it can be print */
 		pkt->data[pkt->length] = '\0';
 
-		#if DEBUG == 1
+		if (debug) {
             printf("Data:\n");
 			print_bin(pkt->data, pkt->length);
             printf("Signature:\n");
 			print_bin(pkt->signature, SIGN_SIZE);
-        #endif
+		}
 	}
-	#if DEBUG == 1
-        printf("==========END RECEIVING==========\n");
-    #endif
+	if (debug) {
+		printf("==========END RECEIVING==========\n");
+	}
 
     return status;
 
@@ -163,9 +166,9 @@ int send_packet(packet_t *pkt, int fd)
         }
     }
 
-	#if DEBUG == 1
-        printf("==========PACKET SENT============\n");
-        printf("Status: %d\n", pkt->status);
+	if (debug) {
+		printf("==========PACKET SENT============\n");
+		printf("Status: %d\n", pkt->status);
 		printf("Type: %d\n", pkt->type);
 		printf("Length: %d\n", pkt->length);
 		if (pkt->length > 0) {
@@ -174,8 +177,8 @@ int send_packet(packet_t *pkt, int fd)
 			printf("Signature:\n");
 			print_bin(pkt->signature, SIGN_SIZE);
 		}
-        printf("==========END SENT===============\n");
-    #endif
+		printf("==========END SENT===============\n");
+	}
 
     return status;
 

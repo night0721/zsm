@@ -4,23 +4,9 @@
 #include "notification.h"
 #include "server/server.h"
 
-typedef struct client_t {
-	int fd; /* File descriptor for client socket */
-	uint8_t *shared_key;
-	char username[MAX_NAME]; /* Username of client */
-} client_t;
-
-typedef struct thread_t {
-	int epoll_fd; /* epoll instance for each thread */
-	pthread_t thread; /* POSIX thread */
-	int num_clients; /* Number of active clients in thread */
-	client_t clients[MAX_CLIENTS_PER_THREAD]; /* Active clients */
-} thread_t;
-
+int debug;
 thread_t threads[MAX_THREADS];
 int num_thread = 0;
-
-void *thread_worker(void *arg);
 
 /*
  * Authenticate client before starting communication
@@ -154,11 +140,16 @@ void *thread_worker(void *arg)
 	}
 }
 
-int main()
+int main(int argc, char **argv)
 {
     if (sodium_init() < 0) {
         error(1, "Error initializing libsodium");
     }
+	
+	if (argc == 2 && strcmp(argv[1], "-d") == 0) {
+		/* Turns on debug flag */
+		debug = 1;
+	}
     
     signal(SIGPIPE, signal_handler);
     signal(SIGABRT, signal_handler);
