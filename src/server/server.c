@@ -28,7 +28,7 @@ void *thread_worker(void *arg);
 int authenticate_client(int clientfd, uint8_t *username)
 {
 	/* Create a challenge */
-    uint8_t *challenge = memalloc(CHALLENGE_SIZE * sizeof(uint8_t));
+    uint8_t *challenge = memalloc(CHALLENGE_SIZE);
     randombytes_buf(challenge, CHALLENGE_SIZE);
 
     /* Sending fake signature as structure requires it */
@@ -37,10 +37,7 @@ int authenticate_client(int clientfd, uint8_t *username)
     packet_t *auth_pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
 			challenge, fake_sig);
     if (send_packet(auth_pkt, clientfd) != ZSM_STA_SUCCESS) {
-        /* fd already closed */
         error(0, "Could not authenticate client");
-        free(challenge);
-        free_packet(auth_pkt);
         goto failure;
     }
     free(fake_sig);
@@ -53,11 +50,12 @@ int authenticate_client(int clientfd, uint8_t *username)
         goto failure;
     }
 
-	uint8_t pk_bin[PK_BIN_SIZE], pk_username[MAX_NAME];
-	memcpy(pk_bin, client_auth_pkt.data, PK_BIN_SIZE);
-	memcpy(pk_username, client_auth_pkt.data + PK_BIN_SIZE, MAX_NAME);
+	uint8_t pk_bin[PK_RAW_SIZE], pk_username[MAX_NAME];
+	memcpy(pk_bin, client_auth_pkt.data, PK_RAW_SIZE);
+	memcpy(pk_username, client_auth_pkt.data + PK_RAW_SIZE, MAX_NAME);
 
     if (crypto_sign_verify_detached(client_auth_pkt.signature, challenge, CHALLENGE_SIZE, pk_bin) != 0) {
+		free_packet(auth_pkt);
         error(0, "Incorrect signature, could not authenticate client");
         free(client_auth_pkt.data);
         goto failure;

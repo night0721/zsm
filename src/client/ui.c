@@ -494,14 +494,14 @@ void send_message()
 {
 	uint8_t *recipient = users->items[current_selection].name;
 
-	key_pair *kp_from = get_key_pair(USERNAME);
-	key_pair *kp_to = get_key_pair(recipient);
+	keypair_t *kp_from = get_keypair(USERNAME);
+	keypair_t *kp_to = get_keypair(recipient);
 
 	int status = ZSM_STA_SUCCESS;
 
-	uint8_t shared_key[SHARED_SIZE];
-	if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.bin,
-				kp_from->sk.bin, kp_to->pk.bin) != 0) {
+	uint8_t shared_key[SHARED_KEY_SIZE];
+	if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
+				kp_from->sk.raw, kp_to->pk.raw) != 0) {
 		/* Recipient public key is suspicious */
 		error(0, "Error performing key exchange");
 	}

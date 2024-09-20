@@ -12,7 +12,7 @@ int sockfd;
 /*
  * Authenticate with server by signing a challenge
  */
-int authenticate_server(key_pair *kp)
+int authenticate_server(keypair_t *kp)
 {
     packet_t server_auth_pkt;
     int status;
@@ -21,27 +21,22 @@ int authenticate_server(key_pair *kp)
     }
     uint8_t *challenge = server_auth_pkt.data;
     
-    uint8_t *sig = memalloc(SIGN_SIZE * sizeof(uint8_t));
-    crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk.bin);
-	
-	uint8_t *pk_content = memalloc(PK_SIZE);
-	memcpy(pk_content, kp->pk.bin, PK_BIN_SIZE);
-	memcpy(pk_content + PK_BIN_SIZE, kp->pk.username, MAX_NAME);
-	memcpy(pk_content + PK_BIN_SIZE + MAX_NAME, &kp->pk.creation, TIME_SIZE);
-	memcpy(pk_content + PK_BIN_SIZE + METADATA_SIZE, kp->pk.signature, SIGN_SIZE);
+    uint8_t *sig = memalloc(SIGN_SIZE);
+    crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk.raw);
 
-    packet_t *auth_pkt = create_packet(1, ZSM_TYP_AUTH, SIGN_SIZE, pk_content, sig);
-    if (send_packet(auth_pkt, sockfd) != ZSM_STA_SUCCESS) {
+	uint8_t *pk_full = memalloc(PK_SIZE);
+	memcpy(pk_full, kp->pk.full, PK_SIZE);
+
+    packet_t *auth_pkt = create_packet(1, ZSM_TYP_AUTH, SIGN_SIZE, pk_full, sig);
+    if ((status = send_packet(auth_pkt, sockfd)) != ZSM_STA_SUCCESS) {
         /* fd already closed */
-        error(0, "Could not authenticate with server");
-        free(sig);
+        error(0, "Could not authenticate with server, status: %d", status);
         free_packet(auth_pkt);
         return ZSM_STA_ERROR_AUTHENTICATE;
     }
 
     free_packet(auth_pkt);
-    packet_t response;
-	status = recv_packet(&response, sockfd, ZSM_TYP_INFO);
+	status = recv_packet(auth_pkt, sockfd, ZSM_TYP_INFO);
 	return (response.status == ZSM_STA_AUTHORISED ?  ZSM_STA_SUCCESS : ZSM_STA_ERROR_AUTHENTICATE);
 }
 
@@ -59,7 +54,7 @@ void *ui_worker(void *arg)
  */
 void *receive_worker(void *arg)
 {
-	key_pair *kp = (key_pair *) arg;
+	keypair_t *kp = (keypair_t *) arg;
 
     while (1) {
 		packet_t pkt;
@@ -81,12 +76,12 @@ void *receive_worker(void *arg)
 		memcpy(nonce, pkt.data + MAX_NAME * 2, NONCE_SIZE);
 		memcpy(encrypted, pkt.data + MAX_NAME * 2 + NONCE_SIZE, cipher_len);
 		   
-		key_pair *kp_from = get_key_pair(from);
-		key_pair *kp_to = get_key_pair(to);
+		keypair_t *kp_from = get_keypair(from);
+		keypair_t *kp_to = get_keypair(to);
 
-		uint8_t shared_key[SHARED_SIZE];
-		if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.bin,
-					kp_from->sk.bin, kp_to->pk.bin) != 0) {
+		uint8_t shared_key[SHARED_KEY_SIZE];
+		if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
+					kp_from->sk.raw, kp_to->pk.raw) != 0) {
 			/* Suspicious server public key, bail out */
 			error(0, "Error performing key exchange");
 		}
@@ -150,10 +145,10 @@ int main()
 	write_log(LOG_INFO, "Connected to server at %s\n", DOMAIN);
 
 	/*
-	key_pair *kpp = create_key_pair("palanix");
-	key_pair *kpn = create_key_pair("night");
+	keypair_t *kpp = create_keypair("palanix");
+	keypair_t *kpn = create_keypair("night");
 */
-	key_pair *kp = get_key_pair(USERNAME);
+	keypair_t *kp = get_keypair(USERNAME);
 
     if (authenticate_server(kp) != ZSM_STA_SUCCESS) {
         /* Fatal */
