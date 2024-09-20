@@ -198,7 +198,7 @@ void highlight_current_line()
             if (num_marked > 0) {
                 /* Determine length of formatted string */
                 int m_len = snprintf(NULL, 0, "[%ld] selected", num_marked);
-                char *selected = memalloc((m_len + 1) * sizeof(char));
+                char *selected = memalloc(m_len + 1);
 
                 snprintf(selected, m_len + 1, "[%ld] selected", num_marked);
                 wpprintw("(%ld/%ld) %s", current_selection + 1, users->length, selected);

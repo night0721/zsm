@@ -67,7 +67,7 @@ char *replace_home(char *str)
 		write_log(LOG_ERROR, "$HOME not defined\n"); 
         return str;
     }
-    char *newstr = memalloc((strlen(str) + strlen(home)) * sizeof(char));
+    char *newstr = memalloc(strlen(str) + strlen(home));
     /* replace ~ with home */
     snprintf(newstr, strlen(str) + strlen(home), "%s%s", home, str + 1);
     free(str);
@@ -80,8 +80,8 @@ char *replace_home(char *str)
  */
 void mkdir_p(const char *destdir)
 {
-    char *path = memalloc(PATH_MAX * sizeof(char));
-    char dir_path[PATH_MAX] = "";
+    char *path = memalloc(PATH_MAX);
+    char dir_path[PATH_MAX];
 
     if (destdir[0] == '~') {
         char *home = getenv("HOME");

@@ -246,10 +246,10 @@ int verify_packet(packet_t *pkt, int fd)
  */
 uint8_t *create_signature(uint8_t *data, uint32_t length, secret_key *sk)
 {
-	uint8_t *signature = memalloc(SIGN_SIZE * sizeof(uint8_t));
+	uint8_t *signature = memalloc(SIGN_SIZE);
 	if (data == NULL && length == 0 && sk == NULL) {
 		/* From server, give fake signature */
-		memset(signature, 0, SIGN_SIZE * sizeof(uint8_t));
+		memset(signature, 0, SIGN_SIZE);
 	} else {
 		uint8_t hash[HASH_SIZE];
 

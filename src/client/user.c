@@ -102,11 +102,11 @@ char *get_line(ArrayList *list, long index, bool icons)
 		length = name_len;
     }
 
-    char *line = memalloc(length * sizeof(char));
+    char *line = memalloc(length);
     line[0] = '\0';
     
     if (icons) {
-		char *tmp = memalloc(9 * sizeof(char));
+		char *tmp = memalloc(9);
         snprintf(tmp, 8, "%ls", seluser.icon);
 
         strcat(line, tmp);
