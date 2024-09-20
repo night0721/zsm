@@ -70,7 +70,6 @@ char *replace_home(char *str)
     char *newstr = memalloc(strlen(str) + strlen(home));
     /* replace ~ with home */
     snprintf(newstr, strlen(str) + strlen(home), "%s%s", home, str + 1);
-    free(str);
     return newstr;
 }
 
@@ -123,24 +122,21 @@ void mkdir_p(const char *destdir)
     return;
 }
 
-void create_data_dir()
-{
-	char *client_data_dir = estrdup(CLIENT_DATA_DIR);
-	mkdir_p(client_data_dir);
-	client_data_dir = replace_home(client_data_dir);
-	free(client_data_dir);
-}
-
 void write_log(int type, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
+
 	char *client_log = memalloc(PATH_MAX);
-	snprintf(client_log, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "/zen.log");
+	char *data_dir = replace_home(CLIENT_DATA_DIR);
+	snprintf(client_log, PATH_MAX, "%s/%s", data_dir, "zen.log");
+	printf("log: %s\n", client_log);
+	free(data_dir);
 	if (access(client_log, W_OK) != 0) {
 		/* If log file doesn't exist, most likely data dir won't exist too */
-		create_data_dir();
+		mkdir_p(CLIENT_DATA_DIR);
 	}
+
 	FILE *log = fopen(client_log, "a");
 	if (log != NULL) {
 		time_t now = time(NULL);

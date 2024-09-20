@@ -32,10 +32,12 @@ int sqlite_init()
     char *err_msg = 0;
     
 	char *zen_db = memalloc(PATH_MAX);
-	snprintf(zen_db, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "/zen.db");
+	char *data_dir = replace_home(CLIENT_DATA_DIR);
+	snprintf(zen_db, PATH_MAX, "%s/%s", data_dir, "data.db");
+	free(data_dir);
 	if (access(zen_db, W_OK) != 0) {
-		/* If log file doesn't exist, most likely data dir won't exist too */
-		create_data_dir();
+		/* If data file doesn't exist, most likely data dir won't exist too */
+		mkdir_p(CLIENT_DATA_DIR);
 	}
 
     int rc = sqlite3_open(zen_db, &db);
