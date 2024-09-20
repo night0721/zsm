@@ -136,7 +136,7 @@ void write_log(int type, const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 	char *client_log = memalloc(PATH_MAX);
-	snprintf(client_log, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "zen.log");
+	snprintf(client_log, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "/zen.log");
 	if (access(client_log, W_OK) != 0) {
 		/* If log file doesn't exist, most likely data dir won't exist too */
 		create_data_dir();
@@ -155,8 +155,8 @@ void write_log(int type, const char *fmt, ...)
 		snprintf(details, 2 + type_len + 22, "%s%s", logtype, time);
 		fprintf(log, details);
 		vfprintf(log, fmt, args);
+		fclose(log);
 	}
-	fclose(log);
     va_end(args);
 }
 

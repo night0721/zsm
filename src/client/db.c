@@ -32,7 +32,7 @@ int sqlite_init()
     char *err_msg = 0;
     
 	char *zen_db = memalloc(PATH_MAX);
-	snprintf(zen_db, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "zen.db");
+	snprintf(zen_db, PATH_MAX, "%s/%s", CLIENT_DATA_DIR, "/zen.db");
 	if (access(zen_db, W_OK) != 0) {
 		/* If log file doesn't exist, most likely data dir won't exist too */
 		create_data_dir();
