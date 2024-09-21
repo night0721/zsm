@@ -128,6 +128,7 @@ void *thread_worker(void *arg)
 				memcpy(to, pkt.data + MAX_NAME, MAX_NAME);
 				if (to[0] != '\0') {
 					int fd = get_clientfd(to);
+					/* TODO: Find via hashtable */
 					if (fd != -1) {
 						error(0, "Relaying packet to %s", to);
 						send_packet(&pkt, fd);
@@ -184,12 +185,6 @@ int main(int argc, char **argv)
         error(1, "Error on bind");
     }
 
-    if (listen(serverfd, MAX_CONNECTION_QUEUE) < 0) {
-		close(serverfd);
-        error(1, "Error on listen");
-    }
-	
-
 	/* Creating thread pool */
 	for (int i = 0; i < MAX_THREADS; i++) {
 		/* Create epoll instance for each thread */
@@ -208,6 +203,11 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (listen(serverfd, MAX_CONNECTION_QUEUE) < 0) {
+		close(serverfd);
+        error(1, "Error on listen");
+    }
+	
 	error(0, "Listening on port %d", PORT);
 
 	/* Server loop to accept clients and load balance */
@@ -220,6 +220,7 @@ int main(int argc, char **argv)
 		}
 
 		/* Assign new client to a thread
+		 * TODO: Loop everythread to see which client is unintialised
 		 * Clients distributed by a rotation(round-robin)
 		 */
 		thread_t *thread = &threads[num_thread];
