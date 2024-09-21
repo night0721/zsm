@@ -173,10 +173,8 @@ void highlight_current_line()
     long range = users->length;
     /* not highlight if no files in directory */
     if (range == 0 && errno == 0) {
-        #if DRAW_PREVIEW
-            wprintw(chat_content, "No users. Start a converstation.");
-            wrefresh(chat_content);
-        #endif
+		wprintw(chat_content, "No users. Start a converstation.");
+		wrefresh(chat_content);
         return;
     }
 
@@ -278,6 +276,7 @@ void print_message(int flag, message_t *msg, int user_color)
     int i = 0;
     int n = strlen(msg->content);
     int in_bold = 0, in_italic = 0, in_underline = 0, in_block = 0;
+    int last_active_color = -1;
 
     while (i < n) {
         /* Bold */
@@ -382,11 +381,22 @@ void print_message(int flag, message_t *msg, int user_color)
             /* Handle color codes \1 to \8 */
             if (msg->content[i] >= '1' && msg->content[i] <= '8') {
 				/* Convert char to int */
-                int color_pair = msg->content[i] - '0';
-                wattron(chat_content, COLOR_PAIR(color_pair));
-				/* Skip the color code character */
-                i++;
-
+                int new_color = msg->content[i] - '0';
+                if (new_color == last_active_color) {
+					/* Turn off current color */
+                    wattroff(chat_content, COLOR_PAIR(last_active_color));
+					/* Reset last active color */
+					last_active_color = -1;
+                } else {
+                    if (last_active_color != -1) {
+						/* Turn off previous color */
+                        wattroff(chat_content, COLOR_PAIR(last_active_color));
+                    }
+                    last_active_color = new_color;
+					/* Turn on new color */
+                    wattron(chat_content, COLOR_PAIR(new_color));
+                }
+				i++;
             /* Handle new line */
             } else if (msg->content[i] == 'n') {
                 waddch(chat_content, '\n');
@@ -410,6 +420,9 @@ void print_message(int flag, message_t *msg, int user_color)
     wattroff(chat_content, A_ITALIC);
     wattroff(chat_content, A_UNDERLINE);
 	wattroff(chat_content, A_STANDOUT);
+	for (int i = 1; i < 8; i++) {
+		wattroff(chat_content, COLOR_PAIR(i));
+	}
 }
 
 /*

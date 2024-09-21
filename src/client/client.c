@@ -108,7 +108,6 @@ void *receive_worker(void *arg)
 														nonce, shared_key) != 0) {
 			free(decrypted);
 			error(0, "Cannot decrypt data");
-			return NULL;
 		} else {
 			/* Terminate decrypted data so we don't print random bytes */
 			decrypted[data_len] = '\0';
