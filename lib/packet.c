@@ -95,8 +95,7 @@ int recv_packet(packet_t *pkt, int fd, uint8_t required_type)
     return status;
 
 failure:;
-	packet_t *error_pkt = create_packet(status, ZSM_TYP_ERROR, 0, NULL,
-			create_signature(NULL, 0, NULL));
+	packet_t *error_pkt = create_packet(status, ZSM_TYP_ERROR, 0, NULL, NULL);
 
     if (send_packet(error_pkt, fd) != ZSM_STA_SUCCESS) {
         /* Resend it? */
@@ -148,7 +147,7 @@ int send_packet(packet_t *pkt, int fd)
 		goto failure;
     }
 
-	if (pkt->type != ZSM_TYP_INFO && pkt->length > 0 && pkt->data != NULL) {
+	if (pkt->type != ZSM_TYP_INFO && pkt->type != ZSM_TYP_ERROR && pkt->length > 0 && pkt->data != NULL) {
         /* Buffer to store payload (data + signature) */
         size_t payload_len = pkt->length + SIGN_SIZE;
         uint8_t payload[payload_len];
@@ -234,8 +233,8 @@ int verify_packet(packet_t *pkt, int fd)
 	if (crypto_sign_verify_detached(pkt->signature, hash, HASH_SIZE, kp_from->pk.raw) != 0) {
 		/* Not match */
 		error(0, "Cannot verify data integrity");
-		packet_t *error_pkt = create_packet(ZSM_STA_ERROR_INTEGRITY, ZSM_TYP_ERROR, 0, NULL,
-			create_signature(NULL, 0, NULL));
+		packet_t *error_pkt = create_packet(ZSM_STA_ERROR_INTEGRITY,
+				ZSM_TYP_ERROR, 0, NULL, NULL);
 		send_packet(error_pkt, fd);
 		free_packet(error_pkt);
 		return ZSM_STA_ERROR_INTEGRITY;
