@@ -104,6 +104,7 @@ void *thread_worker(void *arg)
 	while (1) {
 		int num_events = epoll_wait(thread->epoll_fd, events, MAX_EVENTS, -1);
 		if (num_events == -1) {
+			/* TODO: pthread exit? */
 			error(0, "epoll_wait");
 		}
 		for (int i = 0; i < num_events; i++) {
@@ -111,11 +112,12 @@ void *thread_worker(void *arg)
 
             if (events[i].events & EPOLLIN) {
 				/* Handle packet */
+				/* TODO: Mutex lock when handle packet */
 				packet_t pkt;
 				int status = verify_packet(&pkt, client->fd);
 				if (status != ZSM_STA_SUCCESS) {
 					if (status == ZSM_STA_CLOSED_CONNECTION) {
-						/* TODO: Remove client from thread */
+						/* TODO: Remove client from thread, epollctldel, close fd */
 						error(0, "Client closed connection");
 					} else {
 						error(0, "Error verifying packet");
@@ -221,6 +223,7 @@ int main(int argc, char **argv)
 
 		/* Assign new client to a thread
 		 * TODO: Loop everythread to see which client is unintialised
+		 * TODO: Use mutex before add client
 		 * Clients distributed by a rotation(round-robin)
 		 */
 		thread_t *thread = &threads[num_thread];

@@ -112,6 +112,7 @@ void *receive_worker(void *arg)
 		} else {
 			/* Terminate decrypted data so we don't print random bytes */
 			decrypted[data_len] = '\0';
+			/* TODO: Use mutext before add messgae */
 			add_message(from, to, decrypted, data_len, time(NULL));
 			show_chat(from);
 			send_notification(from, decrypted);
