@@ -96,14 +96,14 @@ void *receive_worker(void *arg)
 		if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
 					kp_from->sk, kp_to->pk.raw) != 0) {
 			/* Suspicious server public key, bail out */
-			write_log(LOG_ERROR, "Error performing key exchange with %s\n", from);
+			write_log(LOG_ERROR, "Error performing key exchange with %s", from);
 		}
 
 		/* We don't need it anymore */
 		free(pkt.data);
 		if (crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, NULL, NULL,
 					encrypted, cipher_len, NULL, 0, nonce, shared_key) != 0) {
-			write_log(LOG_ERROR, "Unable to decrypt data from %s\n", from);
+			write_log(LOG_ERROR, "Unable to decrypt data from %s", from);
 		} else {
 			/* Terminate decrypted data so we don't print random bytes */
 			decrypted[data_len] = '\0';
@@ -120,7 +120,7 @@ void *receive_worker(void *arg)
 int main()
 {
     if (sodium_init() < 0) {
-        write_log(LOG_ERROR, "Error initializing libsodium\n");
+        write_log(LOG_ERROR, "Error initializing libsodium");
     }
 	
 	/* Init libnotify with app name */
@@ -152,12 +152,12 @@ int main()
 		return 0;
 	}
 
-	write_log(LOG_INFO, "Connected to server at %s\n", DOMAIN);
+	write_log(LOG_INFO, "Connected to server at %s", DOMAIN);
     if (authenticate_server(&sockfd) != ZSM_STA_SUCCESS) {
         /* Fatal */
         error(1, "Error authenticating with server");
 	} else {
-		write_log(LOG_INFO, "Authenticated to server as %s\n", USERNAME);
+		write_log(LOG_INFO, "Authenticated to server as %s", USERNAME);
 	}
 
 	

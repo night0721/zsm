@@ -529,7 +529,7 @@ void send_message()
 	if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
 				kp_from->sk, kp_to->pk.raw) != 0) {
 		/* Recipient public key is suspicious */
-		write_log(LOG_ERROR, "Error performing key exchange with %s\n", recipient);
+		write_log(LOG_ERROR, "Error performing key exchange with %s", recipient);
 	}
 
 	size_t content_len = strlen(content);
@@ -559,7 +559,7 @@ void send_message()
 
 	if (send_packet(pkt, sockfd) != ZSM_STA_SUCCESS) {
 		close(sockfd);
-		write_log(LOG_ERROR, "Failed to send message\n");
+		write_log(LOG_ERROR, "Failed to send message");
 	}
 	add_message(USERNAME, recipient, content, content_len, time(NULL));
 	free_packet(pkt);

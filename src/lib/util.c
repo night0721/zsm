@@ -40,7 +40,7 @@ void *memalloc(size_t size)
 {
     void *ptr = malloc(size);
     if (!ptr) {
-        write_log(LOG_ERROR, "Error allocating memory\n"); 
+        write_log(LOG_ERROR, "Error allocating memory"); 
         return NULL;
     }
     return ptr;
@@ -50,7 +50,7 @@ void *estrdup(void *str)
 {
     void *modstr = strdup(str);
     if (modstr == NULL) {
-		write_log(LOG_ERROR, "Error allocating memory\n"); 
+		write_log(LOG_ERROR, "Error allocating memory"); 
         return NULL;
     }
     return modstr;
@@ -64,7 +64,7 @@ char *replace_home(char *str)
 {
     char *home = getenv("HOME");
     if (home == NULL) {
-		write_log(LOG_ERROR, "$HOME not defined\n"); 
+		write_log(LOG_ERROR, "$HOME not defined"); 
         return str;
     }
     char *newstr = memalloc(strlen(str) + strlen(home));
@@ -85,7 +85,7 @@ void mkdir_p(const char *destdir)
     if (destdir[0] == '~') {
         char *home = getenv("HOME");
         if (home == NULL) {
-			write_log(LOG_ERROR, "$HOME not defined\n"); 
+			write_log(LOG_ERROR, "$HOME not defined"); 
             return;
         }
         /* replace ~ with home */
@@ -111,7 +111,7 @@ void mkdir_p(const char *destdir)
                 continue;
             }
             
-			write_log(LOG_ERROR, "mkdir failed: %s\n", strerror(errno)); 
+			write_log(LOG_ERROR, "mkdir failed: %s", strerror(errno)); 
             free(path);
             return;
         }
@@ -148,7 +148,7 @@ void write_log(int type, const char *fmt, ...)
 		strftime(time, 22, "%Y-%m-%d %H:%M:%S ", t);
 		char details[2 + type_len + 22];
 		snprintf(details, 2 + type_len + 22, "%s%s", logtype, time);
-		fprintf(log, details);
+		fprintf(log, "%s\n", details);
 		vfprintf(log, fmt, args);
 		fclose(log);
 	}
