@@ -3,8 +3,6 @@
 #include "util.h"
 #include "server/server.h"
 
-int debug;
-
 /*
  * Requires manually free packet data
  * pkt: packet to fill data in (must be created via create_packet)
@@ -209,17 +207,17 @@ void free_packet(packet_t *pkt)
 /*
  * Wrapper for recv_packet to verify packet
  * Reads packet from fd, stores in pkt
- * TODO: pkt is unncessary
  */
-int verify_packet(packet_t *pkt, int fd)
+int verify_packet(int fd)
 {
+	packet pkt;
 	int status = recv_packet(pkt, fd, ZSM_TYP_MESSAGE);
 	if (status != ZSM_STA_SUCCESS) {
 		close(fd);
 		return status;
 	}
 
-	uint8_t from[MAX_NAME], to[MAX_NAME];
+	uint8_t from[MAX_NAME];
 	memcpy(from, pkt->data, MAX_NAME);
 
 	/* TODO: replace with db operations */
