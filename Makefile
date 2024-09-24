@@ -16,9 +16,9 @@ username ?= default
 LDFLAGS = $(shell pkg-config --libs libsodium libnotify ncurses sqlite3)
 CFLAGS = -O3 -mtune=native -march=native -pipe -g -std=c99 -Wno-pointer-sign -pedantic -Wall -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 $(shell pkg-config --cflags libsodium libnotify ncurses sqlite3) -lpthread
 
-SERVERSRC = src/server/*.c
-CLIENTSRC = src/client/*.c
-LIBSRC = lib/*.c
+SERVERSRC = src/zmr/*.c
+CLIENTSRC = src/zen/*.c
+LIBSRC = src/lib/*.c
 INCLUDE = -Iinclude/
 
 all: $(SERVER) $(CLIENT)
