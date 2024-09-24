@@ -64,6 +64,7 @@ keypair_t *get_keypair(char *username)
     FILE *pkf = fopen(pk_path, "r");
     FILE *skf = fopen(sk_path, "r");
     if (!pkf || !skf) {
+		create_keypair(username);
         printf("Error opening key files.\n");
         return NULL;
     }
