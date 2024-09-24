@@ -4,6 +4,22 @@
 #include "server/server.h"
 
 /*
+ * Print contents of packet
+ */
+void print_packet(packet_t *pkt)
+{
+	printf("Packet:\n");
+	printf("Status: %d\n", pkt->status);
+	printf("Type: %d\n", pkt->type);
+	printf("Length: %d\n", pkt->length);
+	if (pkt->length > 0) {
+		printf("Data:\n");
+		print_bin(pkt->data, pkt->length);
+		printf("Signature:\n");
+		print_bin(pkt->signature, SIGN_SIZE);
+	}
+}
+/*
  * Requires manually free packet data
  * pkt: packet to fill data in (must be created via create_packet)
  * fd: file descriptor to read data from
@@ -31,13 +47,7 @@ int recv_packet(packet_t *pkt, int fd, uint8_t required_type)
     memcpy(&pkt->type, &header[sizeof(pkt->status)], sizeof(pkt->type));
     memcpy(&pkt->length, &header[sizeof(pkt->status) + sizeof(pkt->type)], sizeof(pkt->length));
 
-	if (debug) {
-		printf("==========PACKET RECEIVED========\n");
-		printf("Status: %d\n", pkt->status);
-		printf("Type: %d\n", pkt->type);
-		printf("Length: %d\n", pkt->length);
-	}
-
+	
     /* Validate the packet type and length */
     if (pkt->type > 0xFF || pkt->type < 0x0 || pkt->type != required_type) {
         status = ZSM_STA_INVALID_TYPE;
@@ -78,18 +88,7 @@ int recv_packet(packet_t *pkt, int fd, uint8_t required_type)
 		memcpy(pkt->signature, payload + pkt->length, SIGN_SIZE);
 		/* Null terminate data so it can be print */
 		pkt->data[pkt->length] = '\0';
-
-		if (debug) {
-            printf("Data:\n");
-			print_bin(pkt->data, pkt->length);
-            printf("Signature:\n");
-			print_bin(pkt->signature, SIGN_SIZE);
-		}
 	}
-	if (debug) {
-		printf("==========END RECEIVING==========\n");
-	}
-
     return status;
 
 failure:;
@@ -162,21 +161,6 @@ int send_packet(packet_t *pkt, int fd)
             goto failure;
         }
     }
-
-	if (debug) {
-		printf("==========PACKET SENT============\n");
-		printf("Status: %d\n", pkt->status);
-		printf("Type: %d\n", pkt->type);
-		printf("Length: %d\n", pkt->length);
-		if (pkt->length > 0) {
-			printf("Data:\n");
-			print_bin(pkt->data, pkt->length);
-			printf("Signature:\n");
-			print_bin(pkt->signature, SIGN_SIZE);
-		}
-		printf("==========END SENT===============\n");
-	}
-
     return status;
 
 failure:
@@ -208,9 +192,8 @@ void free_packet(packet_t *pkt)
  * Wrapper for recv_packet to verify packet
  * Reads packet from fd, stores in pkt
  */
-int verify_packet(int fd)
+int verify_packet(packet_t *pkt, int fd)
 {
-	packet pkt;
 	int status = recv_packet(pkt, fd, ZSM_TYP_MESSAGE);
 	if (status != ZSM_STA_SUCCESS) {
 		close(fd);
@@ -245,7 +228,7 @@ int verify_packet(int fd)
  * Create signature for packet
  * When data, secret is null, length is 0, empty siganture is created
  */
-uint8_t *create_signature(uint8_t *data, uint32_t length, secret_key *sk)
+uint8_t *create_signature(uint8_t *data, uint32_t length, uint8_t *sk)
 {
 	uint8_t *signature = memalloc(SIGN_SIZE);
 	if (data == NULL && length == 0 && sk == NULL) {
@@ -258,7 +241,7 @@ uint8_t *create_signature(uint8_t *data, uint32_t length, secret_key *sk)
 		crypto_generichash(hash, HASH_SIZE,
 				data, length,
 				NULL, 0);
-		crypto_sign_detached(signature, NULL, hash, HASH_SIZE, sk->raw);
+		crypto_sign_detached(signature, NULL, hash, HASH_SIZE, sk);
 	}
 
     return signature;

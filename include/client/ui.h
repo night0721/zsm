@@ -15,6 +15,7 @@
 #define UP 0x103
 #define LEFT 0x104
 #define RIGHT 0x105
+#define ENTER 0xA
 
 void ncurses_init();
 void windows_init();
@@ -22,7 +23,7 @@ void draw_border(WINDOW *window, bool active);
 void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t length, time_t creation);
 void show_chat(uint8_t *recipient);
 void add_username(char *username);
-void ncurses_deinit();
+void deinit();
 void ui();
 
 #endif

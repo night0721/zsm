@@ -4,9 +4,9 @@
 #include "notification.h"
 #include "server/server.h"
 
-int debug;
 thread_t threads[MAX_THREADS];
 int num_thread = 0;
+int debug = 0;
 
 /*
  * Authenticate client before starting communication
@@ -20,8 +20,9 @@ int authenticate_client(int clientfd, uint8_t *username)
     /* Sending fake signature as structure requires it */
     uint8_t *fake_sig =	create_signature(NULL, 0, NULL);
 
-    packet_t *pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE,
-			challenge, fake_sig);
+    packet_t *pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE, challenge,
+			fake_sig);
+
     if (send_packet(pkt, clientfd) != ZSM_STA_SUCCESS) {
         error(0, "Could not authenticate client");
         goto failure;
@@ -39,7 +40,8 @@ int authenticate_client(int clientfd, uint8_t *username)
 	memcpy(pk_bin, pkt->data, PK_RAW_SIZE);
 	memcpy(pk_username, pkt->data + PK_RAW_SIZE, MAX_NAME);
 
-    if (crypto_sign_verify_detached(pkt->signature, challenge, CHALLENGE_SIZE, pk_bin) != 0) {
+    if (crypto_sign_verify_detached(pkt->signature, challenge, CHALLENGE_SIZE,
+				pk_bin) != 0) {
 		free_packet(pkt);
         error(0, "Incorrect signature, could not authenticate client");
         goto failure;
@@ -115,6 +117,7 @@ void *thread_worker(void *arg)
 				/* TODO: Mutex lock when handle packet */
 				packet_t pkt;
 				int status = verify_packet(&pkt, client->fd);
+				if (debug) print_packet(&pkt);
 				if (status != ZSM_STA_SUCCESS) {
 					if (status == ZSM_STA_CLOSED_CONNECTION) {
 						/* TODO: Remove client from thread, epollctldel, close fd */
@@ -257,6 +260,7 @@ int main(int argc, char **argv)
 		/* Assign fd to client in a thread */
 		client->fd = clientfd;
 		strcpy(client->username, username);
+		printf("%s connected\n", username);
 		thread->num_clients++;
 		
 		/* Rotate num_thread back to start if it is larder than MAX_THREADS */

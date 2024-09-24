@@ -7,12 +7,7 @@
 
 static int callback(void *ignore, int argc, char **argv, char **azColName)
 {
-    char *username = memalloc(MAX_NAME);
-	strcpy(username, argv[0]);
-	/* Add only if it isn't talking yourself */
-	if (strncmp(username, USERNAME, MAX_NAME))
-		add_username(username);
-
+	add_username(argv[0]);
     return 0;
 }
 

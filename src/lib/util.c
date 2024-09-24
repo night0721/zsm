@@ -130,7 +130,6 @@ void write_log(int type, const char *fmt, ...)
 	char *client_log = memalloc(PATH_MAX);
 	char *data_dir = replace_home(CLIENT_DATA_DIR);
 	snprintf(client_log, PATH_MAX, "%s/%s", data_dir, "zen.log");
-	printf("log: %s\n", client_log);
 	free(data_dir);
 	if (access(client_log, W_OK) != 0) {
 		/* If log file doesn't exist, most likely data dir won't exist too */

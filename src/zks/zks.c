@@ -32,8 +32,11 @@ int init_db()
     return SQLITE_OK;
 }
 
-// Insert a public key with the given username into the database as a BLOB
-int insert_publickey(const char *username, const unsigned char *pubkey, size_t pubkey_len) {
+/* 
+ * Insert a public key with the given username into the database as a BLOB
+ */
+int insert_publickey(const char *username, const unsigned char *pubkey, size_t pubkey_len)
+{
     sqlite3_stmt *stmt;
     const char *sql = "INSERT OR REPLACE INTO keys(username, publickey) VALUES(?, ?)";
 
@@ -51,8 +54,9 @@ int insert_publickey(const char *username, const unsigned char *pubkey, size_t p
     return rc == SQLITE_DONE ? 0 : rc;
 }
 
-// Retrieve a public key from the database by username
-unsigned char *retrieve_publickey(const char *username, size_t *pubkey_len) {
+/* Retrieve a public key from the database by username */
+unsigned char *retrieve_publickey(const char *username, size_t *pubkey_len)
+{
     sqlite3_stmt *stmt;
     const char *sql = "SELECT publickey FROM keys WHERE username = ?";
     unsigned char *publickey = NULL;
@@ -77,16 +81,17 @@ unsigned char *retrieve_publickey(const char *username, size_t *pubkey_len) {
     return publickey;
 }
 
-// Handle REQUEST command: generate a new key pair and store the public key with username
-void handle_request(int clientfd, const char *username) {
+/* Handle REQUEST command: generate a new key pair and store the public key with username */
+void handle_request(int clientfd, const char *username)
+{
     unsigned char pk[crypto_box_PUBLICKEYBYTES];
     unsigned char sk[crypto_box_SECRETKEYBYTES];
 
-    crypto_box_keypair(pk, sk); // Generate key pair
+    crypto_box_keypair(pk, sk); /* Generate key pair */
 
-    // Store the public key with the username in the database
+    /* Store the public key with the username in the database */
     if (insert_publickey(username, pk, crypto_box_PUBLICKEYBYTES) == 0) {
-        // Convert the public key to hexadecimal string for client display
+        /* Convert the public key to hexadecimal string for client display */
         char publickey_hex[crypto_box_PUBLICKEYBYTES * 2 + 1];
         for (int i = 0; i < crypto_box_PUBLICKEYBYTES; i++) {
             sprintf(publickey_hex + i * 2, "%02x", pk[i]);
@@ -98,13 +103,14 @@ void handle_request(int clientfd, const char *username) {
     }
 }
 
-// Handle RETRIEVE command: get public key by username
-void handle_retrieve(int clientfd, const char *username) {
+/* Handle RETRIEVE command: get public key by username */
+void handle_retrieve(int clientfd, const char *username)
+{
     size_t publickey_len;
     unsigned char *publickey = retrieve_pubkey(username, &pubkey_len);
 
     if (publickey) {
-        // Convert the public key (BLOB) to hexadecimal string for client display
+        /* Convert the public key (BLOB) to hexadecimal string for client display */
         char publickey_hex[pubkey_len * 2 + 1];
         for (size_t i = 0; i < publickey_len; i++) {
             sprintf(publickey_hex + i * 2, "%02x", pubkey[i]);
@@ -117,7 +123,8 @@ void handle_retrieve(int clientfd, const char *username) {
     }
 }
 
-void handle_client(int clientfd) {
+void handle_client(int clientfd)
+{
     char buffer[BUFSIZE];
     ssize_t bytes_received;
 
@@ -126,11 +133,11 @@ void handle_client(int clientfd) {
 
         if (strncmp(buffer, "REQUEST", 7) == 0) {
             char username[BUFSIZE];
-            sscanf(buffer + 8, "%s", username); // Get the username from the command
+            sscanf(buffer + 8, "%s", username); /* Get the username from the command */
             handle_request(clientfd, username);
         } else if (strncmp(buffer, "RETRIEVE", 8) == 0) {
             char username[BUFSIZE];
-            sscanf(buffer + 9, "%s", username); // Get the username from the command
+            sscanf(buffer + 9, "%s", username); /* Get the username from the command */
             handle_retrieve(clientfd, username);
         } else if (strncmp(buffer, "EXIT", 4) == 0) {
             send(clientfd, "BYE\n", 4, 0);
@@ -143,7 +150,8 @@ void handle_client(int clientfd) {
     close(clientfd);
 }
 
-int main() {
+int main()
+{
     if (sodium_init() < 0) {
         fprintf(stderr, "Failed to initialize sodium\n");
         return -1;

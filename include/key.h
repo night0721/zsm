@@ -11,7 +11,7 @@
 #define SK_RAW_SIZE crypto_sign_SECRETKEYBYTES
 #define PK_DATA_SIZE PK_RAW_SIZE + MAX_NAME + TIME_SIZE
 #define PK_SIZE PK_DATA_SIZE + SIGN_SIZE /* Size with signature */
-#define SK_SIZE SK_DATA_SIZE
+#define SK_SIZE SK_RAW_SIZE
 #define SHARED_KEY_SIZE crypto_kx_SESSIONKEYBYTES
 
 typedef struct public_key {

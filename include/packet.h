@@ -49,10 +49,14 @@
 #define ZSM_STA_AUTHORISED 0xE
 #define ZSM_STA_CLOSED_CONNECTION 0xF
 
+#define PORT 20247
+#define MAX_NAME 32 /* Max username length */
+#define MAX_DATA_LENGTH 8192
+
 #define ADDRESS_SIZE MAX_NAME + 1 + 255 /* 1 for @, 255 for domain, defined in RFC 5321, Section 4.5.3.1.2 */
 #define HASH_SIZE crypto_generichash_BYTES
-#define NONCE_SIZE crypto_aead_xchacha20poly1305_ietf_NPUBBYTES
-#define ADDITIONAL_SIZE crypto_aead_xchacha20poly1305_ietf_ABYTES
+#define NONCE_SIZE crypto_box_NONCEBYTES /* 24 */
+#define ADDITIONAL_SIZE crypto_box_MACBYTES /* 16 */
 #define MAX_MESSAGE_LENGTH MAX_DATA_LENGTH - MAX_NAME * 2 - NONCE_SIZE
 
 typedef struct packet_t {
@@ -73,11 +77,12 @@ typedef struct message_t {
 #include "key.h"
 
 /* Utilities functions */
+void print_packet(packet_t *pkt);
 int recv_packet(packet_t *pkt, int fd, uint8_t required_type);
 packet_t *create_packet(uint8_t status, uint8_t type, uint32_t length, uint8_t *data, uint8_t *signature);
-int send_packet(packet_t *msg, int fd);
-void free_packet(packet_t *msg);
+int send_packet(packet_t *pkt, int fd);
+void free_packet(packet_t *pkt);
 int verify_packet(packet_t *pkt, int fd);
-uint8_t *create_signature(uint8_t *data, uint32_t length, secret_key *sk);
+uint8_t *create_signature(uint8_t *data, uint32_t length, uint8_t *sk);
 
 #endif

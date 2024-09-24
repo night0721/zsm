@@ -1,641 +1,184 @@
 #include "config.h"
 #include "packet.h"
+#include "key.h"
+#include "notification.h"
 #include "util.h"
 #include "client/ui.h"
 #include "client/db.h"
-#include "client/user.h"
-
-WINDOW *panel;
-WINDOW *users_border;
-WINDOW *chat_border;
-WINDOW *users_content;
-WINDOW *textbox;
-WINDOW *chat_content;
-
-ArrayList *users;
-ArrayList *marked;
-message_t messages[100];
-int num_messages = 0;
-long current_selection = 0;
-int current_window = 0;
-int sockfd;
-bool show_icons;
-
-/* For tracking cursor position in content */
-static int curs_pos = 0;
-static char content[MAX_MESSAGE_LENGTH];
-
-void send_message();
-
-void signal_handler(int signal)
-{
-    switch (signal) {
-        case SIGPIPE:
-            error(0, "SIGPIPE received");
-            break;
-        case SIGABRT:
-        case SIGINT:
-        case SIGTERM:
-			shutdown(sockfd, SHUT_WR);
-			endwin();
-			close(sockfd);
-            error(1, "Shutdown signal received");
-            break;
-    }
-}
-
-void ncurses_init()
-{
-    /* check if it is interactive shell */
-    if (!isatty(STDIN_FILENO)) {
-        error(1, "No tty detected. zen requires an interactive shell to run");
-    }
-
-    /* initialize screen, don't print special chars,
-     * make ctrl + c work, don't show cursor 
-     * enable arrow keys */
-    initscr();
-    noecho();
-    cbreak();
-    keypad(stdscr, TRUE);
-    /* check terminal has colors */
-    if (!has_colors()) {
-        endwin();
-        error(1, "Color is not supported in your terminal");
-    } else {
-        use_default_colors();
-        start_color();
-    }
-    /* colors */
-    init_pair(1, COLOR_BLACK, -1);      /*  */
-    init_pair(2, COLOR_RED, -1);        /*  */
-    init_pair(3, COLOR_GREEN, -1);      /*  */
-    init_pair(4, COLOR_YELLOW, -1);     /*  */
-    init_pair(5, COLOR_BLUE, -1);       /*  */ 
-    init_pair(6, COLOR_MAGENTA, -1);    /*  */
-    init_pair(7, COLOR_CYAN, -1);       /*  */
-    init_pair(8, COLOR_WHITE, -1);      /*  */
-}
+#include "server/server.h"
 
 /*
- * Draw windows
+ * Authenticate with server by signing a challenge
  */
-void windows_init()
+int authenticate_server(int *sockfd)
 {
-    int users_width = 32;
-    int chat_width = COLS - 32;
-
-    /*------------------------------+
-    |-----border----||---border----||
-    ||              ||             ||
-    || content      || content     ||
-    || (users)      ||  (chat)     ||
-    ||              ||-------------||
-    |---------------||-textbox-----||
-    +==========panel===============*/
+	keypair_t *kp = get_keypair(USERNAME);
+	/* create empty packet */
+    packet_t *pkt = create_packet(0, 0, 0, NULL, NULL);
+    int status;
+    if ((status = recv_packet(pkt, *sockfd, ZSM_TYP_AUTH) != ZSM_STA_SUCCESS)) {
+        return status;
+    }
+    uint8_t *challenge = pkt->data;
     
-    /*                     lines,								  cols,            y,						 x             */
-    panel =         newwin(PANEL_HEIGHT,						  COLS,            LINES - PANEL_HEIGHT,	 0              );
-    users_border =  newwin(LINES - PANEL_HEIGHT,				  users_width + 2, 0,						 0              );
-    chat_border =   newwin(LINES - PANEL_HEIGHT - TEXTBOX_HEIGHT, chat_width - 2,  0,						 users_width + 2);
-	textbox =		newwin(TEXTBOX_HEIGHT,						  chat_width - 2,  LINES - PANEL_HEIGHT - TEXTBOX_HEIGHT, users_width + 3);
+    uint8_t *sig = memalloc(SIGN_SIZE);
+    crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk);
 
-    /*									 lines,										cols,            y,                    x             */
-    users_content = subwin(users_border, LINES - PANEL_HEIGHT - 2,					users_width,     1,                    1              );
-    chat_content =  subwin(chat_border,  LINES - PANEL_HEIGHT - 2 - TEXTBOX_HEIGHT, chat_width - 4,  1,                    users_width + 3);
-    
-	/* draw border around windows */
-	refresh();
-    draw_border(users_border, true);
-    draw_border(chat_border, false);
+	uint8_t *pk_full = memalloc(PK_SIZE);
+	memcpy(pk_full, kp->pk.full, PK_SIZE);
 
-	scrollok(textbox, true);
-    scrollok(users_content, true);
-    scrollok(chat_content, true);
-    refresh();
-}
+	pkt->status = 1;
+	pkt->type = ZSM_TYP_AUTH;
+	pkt->length = SIGN_SIZE;
+	pkt->data = pk_full;
+	pkt->signature = sig;
 
-/*
- * Draw the border of the window depending if it's active or not,
- */
-void draw_border(WINDOW *window, bool active)
-{
-    int width;
-    if (window == users_border) {
-        width = 34;
-    } else {
-        width = COLS - 34;
+    if ((status = send_packet(pkt, *sockfd)) != ZSM_STA_SUCCESS) {
+        /* fd already closed */
+        error(0, "Could not authenticate with server, status: %d", status);
+        free_packet(pkt);
+        return ZSM_STA_ERROR_AUTHENTICATE;
     }
 
-    /* turn on color depends on active */
-    if (active) {
-        wattron(window, COLOR_PAIR(3));
-    } else {
-        wattron(window, COLOR_PAIR(5));
-    }
-
-	box(window, 0, 0);
-
-    /* turn color off after turning it on */
-    if (active) {
-        wattroff(window, COLOR_PAIR(3));
-    } else {
-        wattroff(window, COLOR_PAIR(5));
-    }
-    wrefresh(window);  /* Refresh the window to see the colored border and title */
-}
-
-/*
- * Print line to the panel
- */
-void wpprintw(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    wclear(panel);
-    vw_printw(panel, fmt, args);
-    va_end(args);
-    wrefresh(panel);
-}
-
-/*
- * Highlight current line by reversing the color
- */
-void highlight_current_line()
-{
-    long overflow = 0;
-    if (current_selection > LINES - 4) {
-        /* overflown */
-        overflow = current_selection - (LINES - 4);
-    }
-
-    /* calculate range of files to show */
-    long range = users->length;
-    /* not highlight if no files in directory */
-    if (range == 0 && errno == 0) {
-		wprintw(chat_content, "No users. Start a converstation.");
-		wrefresh(chat_content);
-        return;
-    }
-
-    if (range > LINES - 3) {
-        /* if there are more files than lines available to display
-         * shrink range to avaiable lines to display with
-         * overflow to keep the number of iterations to be constant */
-        range = LINES - 3 + overflow;
-    }
-    
-    wclear(users_content);
-    long line_count = 0;
-    for (long i = overflow; i < range; i++) {
-        if ((overflow == 0 && i == current_selection) || (overflow != 0 && i == current_selection)) {
-            wattron(users_content, A_REVERSE);
-
-            /* check for marked user */
-            long num_marked = marked->length;
-            if (num_marked > 0) {
-                /* Determine length of formatted string */
-                int m_len = snprintf(NULL, 0, "[%ld] selected", num_marked);
-                char *selected = memalloc(m_len + 1);
-
-                snprintf(selected, m_len + 1, "[%ld] selected", num_marked);
-                wpprintw("(%ld/%ld) %s", current_selection + 1, users->length, selected);
-            } else  {
-                wpprintw("(%ld/%ld)", current_selection + 1, users->length);
-            }
-        }
-        /* print the actual filename and stats */
-        char *line = get_line(users, i, show_icons);
-        int color = users->items[i].color;
-        /* check is user marked for action */
-        bool is_marked = arraylist_search(marked, users->items[i].name) != -1;
-        if (is_marked) {
-            /* show user is selected */
-            wattron(users_content, COLOR_PAIR(7));
-        } else {
-            /* print the whole directory with default colors */
-            wattron(users_content, COLOR_PAIR(color));
-        }
-        
-        if (overflow > 0)
-            mvwprintw(users_content, line_count, 0, "%s", line);
-		else
-            mvwprintw(users_content, i, 0, "%s", line);
-
-        if (is_marked) {
-            wattroff(users_content, COLOR_PAIR(7));
-		} else {
-            wattroff(users_content, COLOR_PAIR(color));
-        }
-
-        wattroff(users_content, A_REVERSE);
-        //free(line);
-        line_count++;
-    }
-
-    wrefresh(users_content);
-    wrefresh(panel);
-    /* show chat conversation every time cursor changes */
-    show_chat(users->items[current_selection].name);
-    wrefresh(chat_content);
-}
-
-void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t length, time_t creation)
-{
-	message_t *msg = &messages[num_messages];
-	strcpy(msg->author, author);
-	strcpy(msg->recipient, recipient);
-	msg->content = memalloc(length);
-	strcpy(msg->content, content);
-	msg->creation = creation;
-	num_messages++;
-}
-
-/*
- * Add message to chat window
- * if flag is 1, print date as well
- * user_color is the color defined above at ncurses_init
- */
-void print_message(int flag, message_t *msg, int user_color)
-{
-    struct tm *timeinfo = localtime(&msg->creation);
-    char timestr[21];
-	if (flag) {
-		strftime(timestr, sizeof(timestr), "%b %d %Y %H:%M:%S", timeinfo);
-	} else {
-		strftime(timestr, sizeof(timestr), "%H:%M:%S", timeinfo);
-	}
-	wprintw(chat_content, "%s ", timestr);
-
-	wattron(chat_content, A_BOLD);
-	wattron(chat_content, COLOR_PAIR(user_color));
-	wprintw(chat_content, "<%s> ", msg->author);
-	wattroff(chat_content, A_BOLD);
-	wattroff(chat_content, COLOR_PAIR(user_color));
-
-    int i = 0;
-    int n = strlen(msg->content);
-    int in_bold = 0, in_italic = 0, in_underline = 0, in_block = 0;
-    int last_active_color = -1;
-
-    while (i < n) {
-        /* Bold */
-        if (msg->content[i] == '*' && msg->content[i + 1] == '*') {
-            if (!in_bold) {
-                /* Look ahead for the matching closing delimiter */
-				int closing_pos = i + 2;
-				while (closing_pos < n && !(msg->content[closing_pos] == '*' && msg->content[closing_pos + 1] == '*')) {
-					closing_pos++;
-				}
-				if (closing_pos < n) {
-                    wattron(chat_content, A_BOLD);
-                    in_bold = 1;
-				} else {
-					/* Treat as regular text if closing delimiter */
-					waddch(chat_content, msg->content[i++]);
-				}
-			} else {
-				wattroff(chat_content, A_BOLD);
-                in_bold = 0;
-			}
-			/* Skip */
-			i += 2;
-
-		/* Italic */
-        } else if (msg->content[i] == '*') {
-            if (!in_italic) {
-                /* Look ahead for the matching closing delimiter */
-                int closing_pos = i + 1;
-                while (closing_pos < n && msg->content[closing_pos] != '*') {
-                    closing_pos++;
-                }
-                if (closing_pos < n) {
-                    wattron(chat_content, A_ITALIC);
-                    in_italic = 1;
-                } else {
-					/* Treat as regular text if closing delimiter */
-                    waddch(chat_content, msg->content[i++]);
-                }
-            } else {
-                wattroff(chat_content, A_ITALIC);
-                in_italic = 0;
-            }
-			/* Skip */
-			i += 1;
-
-		/* Underline */
-        } else if (msg->content[i] == '_') {
-            if (!in_underline) {
-                /* Look ahead for the matching closing delimiter */
-                int closing_pos = i + 1;
-                while (closing_pos < n && msg->content[closing_pos] != '_') {
-                    closing_pos++;
-                }
-                if (closing_pos < n) {
-                    wattron(chat_content, A_UNDERLINE);
-                    in_underline = 1;
-                } else {
-					/* Treat as regular text if closing delimiter */
-                    waddch(chat_content, msg->content[i++]);
-                }
-            } else {
-                wattroff(chat_content, A_UNDERLINE);
-                in_underline = 0;
-            }
-			/* Skip */
-			i += 1;
-
-		/* Block */
-        } else if (msg->content[i] == '`') {
-            if (!in_block) {
-                /* Look ahead for the matching closing delimiter */
-                int closing_pos = i + 1;
-                while (closing_pos < n && msg->content[closing_pos] != '`') {
-                    closing_pos++;
-                }
-                if (closing_pos < n) {
-                    wattron(chat_content, A_STANDOUT);
-                    in_block = 1;
-                } else {
-					/* Treat as regular text if closing delimiter */
-                    waddch(chat_content, msg->content[i++]);
-                }
-            } else {
-                wattroff(chat_content, A_STANDOUT);
-                in_block = 0;
-            }
-			/* Skip */
-			i += 1; 
-
-		/* Allow escape sequence for genuine backslash */
-		} else if (msg->content[i] == '\\' && msg->content[i + 1] == '\\') {
-			/* Print a literal backslash */
-            waddch(chat_content, '\\');
-			/* Skip both backslashes */
-            i += 2;
-
-		/* Color, new line and tab */
-        } else if (msg->content[i] == '\\') {
-			/* Skip the backslash and check the next character */
-            i++;
-            /* Handle color codes \1 to \8 */
-            if (msg->content[i] >= '1' && msg->content[i] <= '8') {
-				/* Convert char to int */
-                int new_color = msg->content[i] - '0';
-                if (new_color == last_active_color) {
-					/* Turn off current color */
-                    wattroff(chat_content, COLOR_PAIR(last_active_color));
-					/* Reset last active color */
-					last_active_color = -1;
-                } else {
-                    if (last_active_color != -1) {
-						/* Turn off previous color */
-                        wattroff(chat_content, COLOR_PAIR(last_active_color));
-                    }
-                    last_active_color = new_color;
-					/* Turn on new color */
-                    wattron(chat_content, COLOR_PAIR(new_color));
-                }
-				i++;
-            /* Handle new line */
-            } else if (msg->content[i] == 'n') {
-                waddch(chat_content, '\n');
-				/* Skip the 'n' */
-                i++;
-
-            } else {
-                /* Invalid sequence, just print the backslash and character */
-                waddch(chat_content, '\\');
-                waddch(chat_content, msg->content[i]);
-                i++;
-            }
-		} else {
-            /* Print regular character */ 
-            waddch(chat_content, msg->content[i]);
-            i++;
-        }
-	}
-    /* Ensure attributes are turned off after printing */
-    wattroff(chat_content, A_BOLD);
-    wattroff(chat_content, A_ITALIC);
-    wattroff(chat_content, A_UNDERLINE);
-	wattroff(chat_content, A_STANDOUT);
-	for (int i = 1; i < 8; i++) {
-		wattroff(chat_content, COLOR_PAIR(i));
-	}
-}
-
-/*
- * Get chat conversation into buffer and show it to chat window
- */
-void show_chat(uint8_t *recipient)
-{
-	wclear(chat_content);
-	for (int i = 0; i < 100; i++) {
-		message_t message = messages[i];
-		if (message.content == NULL) continue;
-		/* Find messages from recipient to client or vice versa */
-		/* outgoing = 1, incoming = 2 */
-		/* if message to print is older than previous message by a day,
-		 * enable flag in print_message to include date */
-		int print_date = 0;
-		if (i > 0 && messages[i - 1].content != NULL && message.creation >= messages[i - 1].creation + 86400) {
-			print_date = 1;
-		}
-		if (strncmp(message.author, USERNAME, MAX_NAME) == 0 &&
-				strncmp(message.recipient, recipient, MAX_NAME) == 0) {
-			print_message(print_date, &message, 1);
-			continue;
-		}
-			
-		if (strncmp(message.author, recipient, MAX_NAME) == 0 &&
-				strncmp(message.recipient, USERNAME, MAX_NAME) == 0) {
-			print_message(print_date, &message, 2);
-			continue;
-		}
-	}
-	wrefresh(chat_content);
-	/* after printing move cursor back to textbox */
-	wmove(textbox, 0, curs_pos + 2);
-	wrefresh(textbox);
-}
-/*
- * Require heap allocated username
- */
-void add_username(char *username)
-{
-	wchar_t *icon_str = memalloc(2 * sizeof(wchar_t));
-	wcsncpy(icon_str, L"", 2);
-
-	arraylist_add(users, username, icon_str, 7, false, false);
-}
-
-void get_chatbox_content(int ch)
-{
-    if (ch == KEY_BACKSPACE || ch == 127) {
-        if (curs_pos > 0) {
-            curs_pos--;
-            content[curs_pos] = '\0';
-        }
-    }
-	/* Input done */
-    else if (ch == '\n') {
-		content[curs_pos++] = ch;
-        content[curs_pos++] = '\0';
-		send_message();
-		/* Reset for new input */
-        curs_pos = 0; 
-
-		/* Set content[0] for printing purposes */
-		content[0] = '\0';
-    }
-    /* Append it to the content if it is normal character */
-    else if (curs_pos < MAX_MESSAGE_LENGTH - 1) {
-		/* Filter readable ASCII */
-		if (ch > 31 && ch < 127) {
-			content[curs_pos++] = ch;
-			content[curs_pos] = '\0';
-		}
-    }
-
-    /* Display the current content */
-	mvwprintw(textbox, 0, 0, "> %s", content);
-	wrefresh(textbox);
-}
-
-void send_message()
-{
-	uint8_t *recipient = users->items[current_selection].name;
-
-	keypair_t *kp_from = get_keypair(USERNAME);
-	keypair_t *kp_to = get_keypair(recipient);
-
-	int status = ZSM_STA_SUCCESS;
-
-	uint8_t shared_key[SHARED_KEY_SIZE];
-	if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
-				kp_from->sk.raw, kp_to->pk.raw) != 0) {
-		/* Recipient public key is suspicious */
-		error(0, "Error performing key exchange");
-	}
-
-	size_t content_len = strlen(content);
-
-    uint32_t cipher_len = content_len + ADDITIONAL_SIZE;
-    uint8_t nonce[NONCE_SIZE], encrypted[cipher_len];
-    
-    /* Generate random nonce(number used once) */
-    randombytes_buf(nonce, sizeof(nonce));
-	
-	/* Encrypt the content and store it to encrypted, should be cipher_len */
-    crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, NULL, content,
-			content_len, NULL, 0, NULL, nonce, shared_key);
-
-    size_t data_len = MAX_NAME * 2 + NONCE_SIZE + cipher_len;
-    uint8_t *data = memalloc(data_len);
-
-	/* Construct data */
-    memcpy(data, kp_from->sk.username, MAX_NAME);
-    memcpy(data + MAX_NAME, kp_to->sk.username, MAX_NAME);
-    memcpy(data + MAX_NAME * 2, nonce, NONCE_SIZE);
-    memcpy(data + MAX_NAME * 2 + NONCE_SIZE, encrypted, cipher_len);
-
-	uint8_t *signature = create_signature(data, data_len, &kp_from->sk);
-	packet_t *pkt = create_packet(1, ZSM_TYP_MESSAGE, data_len, data, signature);
-
-	if (send_packet(pkt, sockfd) != ZSM_STA_SUCCESS) {
-		close(sockfd);
-		write_log(LOG_ERROR, "Failed to send message");
-	}
-	add_message(USERNAME, recipient, content, content_len, time(NULL));
+	if ((status = recv_packet(pkt, *sockfd, ZSM_TYP_INFO)) != ZSM_STA_SUCCESS) {
+		return status;
+	};
+	status = pkt->status;
 	free_packet(pkt);
-	show_chat(recipient);
-}
-
-void ncurses_deinit()
-{
-	arraylist_free(users);
-	arraylist_free(marked);
-	endwin();
+	return (status == ZSM_STA_AUTHORISED ?  ZSM_STA_SUCCESS : ZSM_STA_ERROR_AUTHENTICATE);
 }
 
 /*
- * Main loop of user interface
+ * Starting ui
  */
-int main(int argc, char **argv)
+void *ui_worker(void *arg)
 {
-	signal(SIGPIPE, signal_handler);
-    signal(SIGABRT, signal_handler);
-	signal(SIGINT, signal_handler);
-	signal(SIGTERM, signal_handler);
-	connect_server();
-    ncurses_init();
-    windows_init();
-    users = arraylist_init(LINES);
-    marked = arraylist_init(100);
-	show_icons = true;
-	sqlite_init();
-	highlight_current_line();
-	refresh();
-    int ch;
+	int *sockfd = (int *) arg;
+	ui(sockfd);
+    return NULL;
+}
+
+/*
+ * For receiving packets from server
+ */
+void *receive_worker(void *arg)
+{
+	int *sockfd = (int *) arg;
     while (1) {
-		if (current_window == CHAT_WINDOW) {
-			wclear(textbox);
-			mvwprintw(textbox, 0, 0, "> %s", content);
-			wrefresh(textbox);
-			wmove(textbox, 0, curs_pos + 2);
-			/* Set cursor to visible */
-			curs_set(2);
-		} else {
-			curs_set(0);
+		packet_t pkt;
+		int status = verify_packet(&pkt, *sockfd);
+        if (status != ZSM_STA_SUCCESS) {
+			if (status == ZSM_STA_CLOSED_CONNECTION) {
+				deinit();
+				error(1, "Server closed connection");
+			}
+			error(0, "Error verifying packet");
+        }
+		size_t cipher_len = pkt.length - NONCE_SIZE - MAX_NAME * 2;
+		size_t data_len = cipher_len - ADDITIONAL_SIZE;
+
+		uint8_t nonce[NONCE_SIZE], encrypted[cipher_len];
+
+		uint8_t *from = memalloc(MAX_NAME);
+		uint8_t *to = memalloc(MAX_NAME);
+		uint8_t *decrypted = memalloc(data_len + 1);
+
+		/* Deconstruct data */
+		memcpy(from, pkt.data, MAX_NAME);
+		memcpy(to, pkt.data + MAX_NAME, MAX_NAME);
+		memcpy(nonce, pkt.data + MAX_NAME * 2, NONCE_SIZE);
+		memcpy(encrypted, pkt.data + MAX_NAME * 2 + NONCE_SIZE, cipher_len);
+		   
+		keypair_t *kp_from = get_keypair(from);
+		keypair_t *kp_to = get_keypair(to);
+		
+		uint8_t shared_key[SHARED_KEY_SIZE];
+		if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
+					kp_from->sk, kp_to->pk.raw) != 0) {
+			/* Suspicious server public key, bail out */
+			write_log(LOG_ERROR, "Error performing key exchange with %s\n", from);
 		}
-		ch = getch();
-		switch (ch) {
-			/* go up by k or up arrow */
-            case UP:
-				if (current_window == USERS_WINDOW) {
-					if (current_selection > 0)
-						current_selection--;
 
-					highlight_current_line();
-				}
-                break;
-
-			 /* go down by j or down arrow */
-            case DOWN:
-				if (current_window == USERS_WINDOW) {
-					if (current_selection < (users->length - 1))
-						current_selection++;
-
-					highlight_current_line();
-				}
-                break;
-
-			/* A is normally for left and E for right */
-			case CTRLA:
-			case CTRLE:
-				current_window ^= 1;
-				if (current_window == USERS_WINDOW) {
-					draw_border(users_border, true);
-					draw_border(chat_border, false);
-				} else {
-					draw_border(chat_border, true);
-					draw_border(users_border, false);
-				}
-				break;
-
-			case CLEAR_INPUT:
-				if (current_window == CHAT_WINDOW) {
-					curs_pos = 0;
-					content[0] = '\0';
-				}
-
-			default:
-				if (current_window == CHAT_WINDOW)
-					get_chatbox_content(ch);
-
+		/* We don't need it anymore */
+		free(pkt.data);
+		if (crypto_aead_xchacha20poly1305_ietf_decrypt(decrypted, NULL, NULL,
+					encrypted, cipher_len, NULL, 0, nonce, shared_key) != 0) {
+			write_log(LOG_ERROR, "Unable to decrypt data from %s\n", from);
+		} else {
+			/* Terminate decrypted data so we don't print random bytes */
+			decrypted[data_len] = '\0';
+			/* TODO: Use mutext before add messgae */
+			add_message(from, to, decrypted, data_len, time(NULL));
+			show_chat(from);
+			send_notification(from, decrypted);
 		}
     }
-	ncurses_deinit();
-	return 0;
+
+    return NULL;
+}
+
+int main()
+{
+    if (sodium_init() < 0) {
+        write_log(LOG_ERROR, "Error initializing libsodium\n");
+    }
+	
+	/* Init libnotify with app name */
+    if (notify_init("zen") < 0) {
+        error(1, "Error initializing libnotify");
+    }
+
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        error(1, "Error on opening socket");
+    }
+
+    struct hostent *server = gethostbyname(DOMAIN);
+    if (server == NULL) {
+        error(1, "No such host %s", DOMAIN);
+    }
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+
+/*  free(server); Can't be freed seems */
+    if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr))
+			< 0) {
+		error(1, "Error on connect");
+		close(sockfd);
+		return 0;
+	}
+
+	write_log(LOG_INFO, "Connected to server at %s\n", DOMAIN);
+    if (authenticate_server(&sockfd) != ZSM_STA_SUCCESS) {
+        /* Fatal */
+        error(1, "Error authenticating with server");
+	} else {
+		write_log(LOG_INFO, "Authenticated to server as %s\n", USERNAME);
+	}
+
+	
+	/* Create threads for sending and receiving messages */
+	pthread_t ui_thread, receive_thread;
+
+    if (pthread_create(&ui_thread, NULL, ui_worker, &sockfd) != 0) {
+		close(sockfd);
+        error(1, "Failed to create send thread");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_create(&receive_thread, NULL, receive_worker, &sockfd) != 0) {
+		close(sockfd);
+		error(1, "Failed to create receive thread");
+    }
+
+	/* Wait for threads to finish */
+    pthread_join(ui_thread, NULL);
+    pthread_join(receive_thread, NULL);
+
+    close(sockfd);
+    return 0;
 }

@@ -22,17 +22,15 @@ keypair_t *create_keypair(char *username)
 		return NULL;
 	}
 	
-	memcpy(public_key, pk_raw, PK_RAW_SIZE);
-	memcpy(public_key + PK_RAW_SIZE, username_padded, MAX_NAME);
-	memcpy(public_key + PK_RAW_SIZE + MAX_NAME, &current_time, TIME_SIZE);
+	memcpy(pk_data, pk_raw, PK_RAW_SIZE);
+	memcpy(pk_data + PK_RAW_SIZE, username_padded, MAX_NAME);
+	memcpy(pk_data + PK_RAW_SIZE + MAX_NAME, &current_time, TIME_SIZE);
 
 	crypto_generichash(pk_hash, HASH_SIZE, pk_data, PK_DATA_SIZE, NULL, 0);
-    crypto_sign_detached(pk_sign, NULL, pk_hash, HASH_SIZE, sk_raw);
+    crypto_sign_detached(pk_sign, NULL, pk_hash, HASH_SIZE, sk);
 
-	memcpy(pk, pk_raw, PK_RAW_SIZE);
-	memcpy(pk + PK_RAW_SIZE, metadata, METADATA_SIZE);
-	memcpy(pk + PK_RAW_SIZE + METADATA_SIZE, sign, SIGN_SIZE);
-	memcpy(sk, sk_raw, SK_RAW_SIZE);
+	memcpy(pk, pk_data, PK_DATA_SIZE);
+	memcpy(pk + PK_DATA_SIZE, pk_sign, SIGN_SIZE);
 
 	/* USE DB INSTEAD OF FILES */
 	char pk_path[PATH_MAX], sk_path[PATH_MAX];
@@ -49,10 +47,10 @@ keypair_t *create_keypair(char *username)
 	memcpy(kp->pk.raw, pk_raw, PK_RAW_SIZE);
 	memcpy(kp->pk.username, username_padded, MAX_NAME);
 	kp->pk.creation = current_time;
-	memcpy(kp->pk.signature, sign, SIGN_SIZE);
+	memcpy(kp->pk.signature, pk_sign, SIGN_SIZE);
 	memcpy(kp->pk.full, pk, PK_SIZE);
 
-	memcpy(kp->sk, sk_raw, SK_SIZE);
+	memcpy(kp->sk, sk, SK_SIZE);
 
 	return kp;
 }

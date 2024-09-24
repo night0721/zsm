@@ -1,8 +1,4 @@
 /* Server */
-#define PORT 20247
-#define MAX_NAME 32 /* Max username length */
-#define MAX_DATA_LENGTH 8192
-
 /* Don't touch unless you know what you are doing */
 #define MAX_THREADS 8
 #define MAX_CLIENTS_PER_THREAD 1024
