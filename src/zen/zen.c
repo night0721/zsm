@@ -48,7 +48,7 @@ void ncurses_init()
 {
     /* check if it is interactive shell */
     if (!isatty(STDIN_FILENO)) {
-        error(1, "No tty detected. zsm requires an interactive shell to run");
+        error(1, "No tty detected. zen requires an interactive shell to run");
     }
 
     /* initialize screen, don't print special chars,
@@ -562,13 +562,13 @@ void ncurses_deinit()
 /*
  * Main loop of user interface
  */
-void ui(int fd)
+int main(int argc, char **argv)
 {
 	signal(SIGPIPE, signal_handler);
     signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
-	sockfd = fd;
+	connect_server();
     ncurses_init();
     windows_init();
     users = arraylist_init(LINES);
@@ -579,27 +579,18 @@ void ui(int fd)
 	refresh();
     int ch;
     while (1) {
-		/*
-        if (COLS < 80 || LINES < 24) {
-            endwin();
-            error(1, "Terminal size needs to be at least 80x24");
-        }
-		*/
 		if (current_window == CHAT_WINDOW) {
 			wclear(textbox);
 			mvwprintw(textbox, 0, 0, "> %s", content);
 			wrefresh(textbox);
 			wmove(textbox, 0, curs_pos + 2);
+			/* Set cursor to visible */
 			curs_set(2);
 		} else {
 			curs_set(0);
 		}
 		ch = getch();
 		switch (ch) {
-			case CTRLD:
-				ncurses_deinit();
-				break;
-
 			/* go up by k or up arrow */
             case UP:
 				if (current_window == USERS_WINDOW) {
@@ -645,5 +636,6 @@ void ui(int fd)
 
 		}
     }
-	return;
+	ncurses_deinit();
+	return 0;
 }

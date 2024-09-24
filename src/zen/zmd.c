@@ -7,8 +7,6 @@
 #include "client/db.h"
 #include "server/server.h"
 
-int sockfd;
-
 /*
  * Authenticate with server by signing a challenge
  */
@@ -132,7 +130,7 @@ int main()
         error(1, "Error initializing libnotify");
     }
 
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
         error(1, "Error on opening socket");
     }
@@ -149,8 +147,8 @@ int main()
     memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
 
 /*  free(server); Can't be freed seems */
-    if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr)
-				) < 0) {
+    if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr))
+			< 0) {
 		error(1, "Error on connect");
 		close(sockfd);
 		return 0;
