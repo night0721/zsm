@@ -222,11 +222,19 @@ void draw_users()
 		/* If length of name is longer than half of allowed size in window,
 		 * trim it to end with .. to show the it is too long to be displayed
 		 */
-		if (name_len >= (MAX_NAME / 2) - 2) {
-			name_len = (MAX_NAME / 2) - 2;
+		int too_long = 0;
+		if (name_len > MAX_NAME / 2) {
+			name_len = MAX_NAME / 2;
+			too_long = 1;
 		}
-		char *line = memalloc(name_len);
-		memcpy(line, seluser.name, name_len);
+
+		char line[name_len];
+		if (too_long) {
+			strncpy(line, seluser.name, name_len - 2);
+			strncat(line, "..", 2);
+		} else {
+			strcpy(line, seluser.name);
+		}
 
         int color = users->items[i].color;
 
@@ -254,7 +262,6 @@ void draw_users()
         }
 
         wattroff(users_content, A_REVERSE);
-        free(line);
         line_count++;
     }
 
