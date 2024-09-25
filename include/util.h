@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stdlib.h>
+
 #define LOG_ERROR 1
 #define LOG_INFO 2
 

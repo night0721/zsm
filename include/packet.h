@@ -54,6 +54,7 @@
 #define MAX_DATA_LENGTH 8192
 
 #define ADDRESS_SIZE MAX_NAME + 1 + 255 /* 1 for @, 255 for domain, defined in RFC 5321, Section 4.5.3.1.2 */
+#define CHALLENGE_SIZE 32
 #define HASH_SIZE crypto_generichash_BYTES
 #define NONCE_SIZE crypto_box_NONCEBYTES /* 24 */
 #define ADDITIONAL_SIZE crypto_box_MACBYTES /* 16 */
