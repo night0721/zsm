@@ -4,7 +4,7 @@
 
 keypair_t *create_keypair(char *username)
 {
-	uint8_t pk_raw[PK_RAW_SIZE], sk[SK_SIZE], pk_data[PK_DATA_SIZE],
+	uint8_t pk_raw[PK_ED25519_SIZE], sk[SK_SIZE], pk_data[PK_DATA_SIZE],
 			username_padded[MAX_NAME], pk_hash[HASH_SIZE], pk_sign[SIGN_SIZE],
 			pk[PK_SIZE];
 
@@ -22,9 +22,9 @@ keypair_t *create_keypair(char *username)
 		return NULL;
 	}
 	
-	memcpy(pk_data, pk_raw, PK_RAW_SIZE);
-	memcpy(pk_data + PK_RAW_SIZE, username_padded, MAX_NAME);
-	memcpy(pk_data + PK_RAW_SIZE + MAX_NAME, &current_time, TIME_SIZE);
+	memcpy(pk_data, pk_raw, PK_ED25519_SIZE);
+	memcpy(pk_data + PK_ED25519_SIZE, username_padded, MAX_NAME);
+	memcpy(pk_data + PK_ED25519_SIZE + MAX_NAME, &current_time, TIME_SIZE);
 
 	crypto_generichash(pk_hash, HASH_SIZE, pk_data, PK_DATA_SIZE, NULL, 0);
     crypto_sign_detached(pk_sign, NULL, pk_hash, HASH_SIZE, sk);
@@ -53,7 +53,7 @@ keypair_t *create_keypair(char *username)
 	fclose(keyf);
 
 	keypair_t *kp = memalloc(sizeof(keypair_t));
-	memcpy(kp->pk.raw, pk_raw, PK_RAW_SIZE);
+	memcpy(kp->pk.raw, pk_raw, PK_ED25519_SIZE);
 	memcpy(kp->pk.username, username_padded, MAX_NAME);
 	kp->pk.creation = current_time;
 	memcpy(kp->pk.signature, pk_sign, SIGN_SIZE);
@@ -92,10 +92,10 @@ keypair_t *get_keypair(char *username)
 
     keypair_t *kp = memalloc(sizeof(keypair_t));
 
-    memcpy(kp->pk.raw, pk, PK_RAW_SIZE);
-    memcpy(kp->pk.username, pk + PK_RAW_SIZE, MAX_NAME);
-    memcpy(&kp->pk.creation, pk + PK_RAW_SIZE + MAX_NAME, TIME_SIZE);
-    memcpy(kp->pk.signature, pk + PK_RAW_SIZE + MAX_NAME + TIME_SIZE, SIGN_SIZE);
+    memcpy(kp->pk.raw, pk, PK_ED25519_SIZE);
+    memcpy(kp->pk.username, pk + PK_ED25519_SIZE, MAX_NAME);
+    memcpy(&kp->pk.creation, pk + PK_ED25519_SIZE + MAX_NAME, TIME_SIZE);
+    memcpy(kp->pk.signature, pk + PK_DATA_SIZE, SIGN_SIZE);
 	memcpy(kp->pk.full, pk, PK_SIZE);
 
     memcpy(kp->sk, sk, SK_SIZE);
@@ -108,14 +108,14 @@ keypair_t *get_keypair(char *username)
  */
 uint8_t *get_pk_from_ks(char *username)
 {
-	size_t bin_len = PK_RAW_SIZE;
+	size_t bin_len = PK_ED25519_SIZE;
     unsigned char *bin = memalloc(bin_len);
 	/* TEMPORARY */
 	if (strcmp(username, "night") == 0) {
-		sodium_hex2bin(bin, bin_len, "e2f0287d9c23aed8404dd8ba407e7dff8abe40fa98f0b9adf74904978a5fcd50", PK_RAW_SIZE * 2, NULL, NULL, NULL);
+		sodium_hex2bin(bin, bin_len, "e2f0287d9c23aed8404dd8ba407e7dff8abe40fa98f0b9adf74904978a5fcd50", PK_ED25519_SIZE * 2, NULL, NULL, NULL);
 		return bin;
 	} else if (strcmp(username, "palanix") == 0) {
-		sodium_hex2bin(bin, bin_len, "932aee08aa338108e49f65a5c4f0eb0a08a15bf717fdf8c0ff60eefd0ea014ae", PK_RAW_SIZE * 2, NULL, NULL, NULL);
+		sodium_hex2bin(bin, bin_len, "932aee08aa338108e49f65a5c4f0eb0a08a15bf717fdf8c0ff60eefd0ea014ae", PK_ED25519_SIZE * 2, NULL, NULL, NULL);
 		return bin;
 	}
 	return NULL;

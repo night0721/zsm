@@ -36,9 +36,9 @@ int authenticate_client(int clientfd, uint8_t *username)
         goto failure;
     }
 
-	uint8_t pk_bin[PK_RAW_SIZE], pk_username[MAX_NAME];
-	memcpy(pk_bin, pkt->data, PK_RAW_SIZE);
-	memcpy(pk_username, pkt->data + PK_RAW_SIZE, MAX_NAME);
+	uint8_t pk_bin[PK_ED25519_SIZE], pk_username[MAX_NAME];
+	memcpy(pk_bin, pkt->data, PK_ED25519_SIZE);
+	memcpy(pk_username, pkt->data + PK_ED25519_SIZE, MAX_NAME);
 
     if (crypto_sign_verify_detached(pkt->signature, challenge, CHALLENGE_SIZE,
 				pk_bin) != 0) {

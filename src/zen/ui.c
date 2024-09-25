@@ -521,15 +521,30 @@ void send_message()
 	uint8_t *recipient = users->items[current_user].name;
 
 	keypair_t *kp_from = get_keypair(USERNAME);
-	keypair_t *kp_to = get_keypair(recipient);
+	uint8_t *pk_to = get_pk_from_ks(recipient); /* ed25519 */
 
 	int status = ZSM_STA_SUCCESS;
 
-	uint8_t shared_key[SHARED_KEY_SIZE];
-	if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
-				kp_from->sk, kp_to->pk.raw) != 0) {
-		/* Recipient public key is suspicious */
-		write_log(LOG_ERROR, "Error performing key exchange with %s", recipient);
+	uint8_t *shared_key = get_sharedkey(recipient);
+	if (shared_key == NULL) {
+		uint8_t shared_key[SHARED_KEY_SIZE];
+		
+		/* Key exchange need to be done with x25519 public and secret keys */
+		uint8_t from_pk[PK_X25519_SIZE];
+		uint8_t to_pk[PK_X25519_SIZE];
+		uint8_t from_sk[SK_X25519_SIZE];
+		crypto_sign_ed25519_pk_to_curve25519(from_pk, kp_from->pk.raw);
+		crypto_sign_ed25519_pk_to_curve25519(to_pk, pk_to);
+		crypto_sign_ed25519_sk_to_curve25519(from_sk, kp_from->sk);
+		
+
+		if (crypto_kx_client_session_keys(shared_key, NULL, from_pk, from_sk,
+					to_pk) != 0) {
+			deinit();
+			/* Recipient public key is suspicious */
+			error(1, "Error performing key exchange with %s", recipient);
+		}
+		save_sharedkey(recipient, shared_key);
 	}
 
 	size_t content_len = strlen(content);
@@ -548,9 +563,20 @@ void send_message()
     size_t data_len = MAX_NAME * 2 + NONCE_SIZE + cipher_len;
     uint8_t *data = memalloc(data_len);
 
+	uint8_t recipient_padded[MAX_NAME];
+	strcpy(recipient_padded, recipient);
+    size_t length = strlen(recipient);
+    if (length < MAX_NAME) {
+        /* Pad with null characters up to max length */
+		memset(recipient_padded + length, 0, MAX_NAME - length);
+	} else {
+		deinit();
+		error(1, "Recipient username must be shorter than MAX_NAME");
+	}
+
 	/* Construct data */
     memcpy(data, kp_from->pk.username, MAX_NAME);
-    memcpy(data + MAX_NAME, kp_to->pk.username, MAX_NAME);
+    memcpy(data + MAX_NAME, recipient, MAX_NAME);
     memcpy(data + MAX_NAME * 2, nonce, NONCE_SIZE);
     memcpy(data + MAX_NAME * 2 + NONCE_SIZE, encrypted, cipher_len);
 
@@ -583,6 +609,7 @@ void ui(int *fd)
     users = arraylist_init(LINES);
     marked = arraylist_init(100);
 	sqlite_init();
+	get_users();
 	draw_users();
 	refresh();
     while (1) {

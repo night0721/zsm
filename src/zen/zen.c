@@ -89,14 +89,27 @@ void *receive_worker(void *arg)
 		memcpy(nonce, pkt.data + MAX_NAME * 2, NONCE_SIZE);
 		memcpy(encrypted, pkt.data + MAX_NAME * 2 + NONCE_SIZE, cipher_len);
 		   
-		keypair_t *kp_from = get_keypair(from);
+		uint8_t *pk_from = get_pk_from_ks(from); /* ed25519 */
 		keypair_t *kp_to = get_keypair(to);
-		
-		uint8_t shared_key[SHARED_KEY_SIZE];
-		if (crypto_kx_client_session_keys(shared_key, NULL, kp_from->pk.raw,
-					kp_from->sk, kp_to->pk.raw) != 0) {
-			/* Suspicious server public key, bail out */
-			write_log(LOG_ERROR, "Error performing key exchange with %s", from);
+
+		uint8_t *shared_key = get_sharedkey(from);
+		if (shared_key == NULL) {
+			uint8_t shared_key[SHARED_KEY_SIZE];
+
+			/* Key exchange need to be done with x25519 public and secret keys */
+			uint8_t to_pk[PK_X25519_SIZE];
+			uint8_t from_pk[PK_X25519_SIZE];
+			uint8_t to_sk[SK_X25519_SIZE];
+			crypto_sign_ed25519_pk_to_curve25519(to_pk, kp_to->pk.raw);
+			crypto_sign_ed25519_pk_to_curve25519(from_pk, pk_from);
+			crypto_sign_ed25519_sk_to_curve25519(to_sk, kp_to->sk);
+
+			if (crypto_kx_server_session_keys(shared_key, NULL, to_pk,
+						to_sk, from_pk) != 0) {
+				/* Author public key is suspicious */
+				write_log(LOG_ERROR, "Error performing key exchange with %s", from);
+			}
+			save_sharedkey(from, shared_key);
 		}
 
 		/* We don't need it anymore */

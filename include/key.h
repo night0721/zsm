@@ -7,15 +7,17 @@
 
 #define TIME_SIZE sizeof(time_t)
 #define SIGN_SIZE crypto_sign_BYTES
-#define PK_RAW_SIZE crypto_kx_PUBLICKEYBYTES
-#define SK_RAW_SIZE crypto_sign_SECRETKEYBYTES
-#define PK_DATA_SIZE PK_RAW_SIZE + MAX_NAME + TIME_SIZE
+#define PK_ED25519_SIZE crypto_sign_PUBLICKEYBYTES /* 32, size for signature keys */
+#define SK_ED25519_SIZE crypto_sign_SECRETKEYBYTES /* 64 */
+#define PK_X25519_SIZE crypto_kx_PUBLICKEYBYTES /* 32, size for key exchange keys */
+#define SK_X25519_SIZE crypto_kx_PUBLICKEYBYTES  /* same with public key */
+#define PK_DATA_SIZE PK_ED25519_SIZE + MAX_NAME + TIME_SIZE
 #define PK_SIZE PK_DATA_SIZE + SIGN_SIZE /* Size with signature */
-#define SK_SIZE SK_RAW_SIZE
+#define SK_SIZE SK_ED25519_SIZE 
 #define SHARED_KEY_SIZE crypto_kx_SESSIONKEYBYTES
 
 typedef struct public_key {
-	uint8_t raw[PK_RAW_SIZE];
+	uint8_t raw[PK_ED25519_SIZE];
 	uint8_t username[MAX_NAME];
 	time_t creation;
 	uint8_t signature[SIGN_SIZE];
