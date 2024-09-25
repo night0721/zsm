@@ -24,8 +24,6 @@ int sockfd;
 static int curs_pos = 0;
 static char content[MAX_MESSAGE_LENGTH];
 
-void send_message();
-
 /*
  * Free and close everything
  */
@@ -538,11 +536,17 @@ void send_message()
 		uint8_t from_pk[PK_X25519_SIZE];
 		uint8_t to_pk[PK_X25519_SIZE];
 		uint8_t from_sk[SK_X25519_SIZE];
-		crypto_sign_ed25519_pk_to_curve25519(from_pk, kp_from->pk.raw);
-		crypto_sign_ed25519_pk_to_curve25519(to_pk, pk_to);
-		crypto_sign_ed25519_sk_to_curve25519(from_sk, kp_from->sk);
+		if (crypto_sign_ed25519_pk_to_curve25519(from_pk, kp_from->pk.raw) != 0
+				) {
+			error(1, "Error converting ED25519 PK to X25519 PK");
+		}
+		if (crypto_sign_ed25519_pk_to_curve25519(to_pk, pk_to) != 0) {
+			error(1, "Error converting ED25519 PK to X25519 PK");
+		}
+		if (crypto_sign_ed25519_sk_to_curve25519(from_sk, kp_from->sk) != 0) {
+			error(1, "Error converting ED25519 SK to X25519 SK");
+		}
 		
-
 		if (crypto_kx_client_session_keys(shared_key, NULL, from_pk, from_sk,
 					to_pk) != 0) {
 			deinit();

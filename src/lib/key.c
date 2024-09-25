@@ -125,6 +125,12 @@ uint8_t *get_pk_from_ks(char *username)
 	} else if (strcmp(username, "palanix") == 0) {
 		sodium_hex2bin(bin, bin_len, "932aee08aa338108e49f65a5c4f0eb0a08a15bf717fdf8c0ff60eefd0ea014ae", PK_ED25519_SIZE * 2, NULL, NULL, NULL);
 		return bin;
+	} else if (strcmp(username, "martinmimi") == 0) {
+		sodium_hex2bin(bin, bin_len, "3d381d61114234bcb0e17d650e0be2e3528b592af665f1c503ba2667c69f2d72", PK_ED25519_SIZE * 2, NULL, NULL, NULL);
+		return bin;
+	} else if (strcmp(username, "finnimo") == 0) {
+		sodium_hex2bin(bin, bin_len, "fdd6710716a01d1421a341017d087945c721151c4d541b46092ec2bbc31d7e8f", PK_ED25519_SIZE * 2, NULL, NULL, NULL);
+		return bin;
 	}
 	return NULL;
 }

@@ -100,9 +100,16 @@ void *receive_worker(void *arg)
 			uint8_t to_pk[PK_X25519_SIZE];
 			uint8_t from_pk[PK_X25519_SIZE];
 			uint8_t to_sk[SK_X25519_SIZE];
-			crypto_sign_ed25519_pk_to_curve25519(to_pk, kp_to->pk.raw);
-			crypto_sign_ed25519_pk_to_curve25519(from_pk, pk_from);
-			crypto_sign_ed25519_sk_to_curve25519(to_sk, kp_to->sk);
+			if (crypto_sign_ed25519_pk_to_curve25519(to_pk, kp_to->pk.raw)
+					!= 0) {
+				error(1, "Error converting ED25519 PK to X25519 PK");
+			}
+			if (crypto_sign_ed25519_pk_to_curve25519(from_pk, pk_from) != 0) {
+				error(1, "Error converting ED25519 PK to X25519 PK");
+			}
+			if (crypto_sign_ed25519_sk_to_curve25519(to_sk, kp_to->sk) != 0) {
+				error(1, "Error converting ED25519 SK to X25519 SK");
+			}
 
 			if (crypto_kx_server_session_keys(shared_key, NULL, to_pk,
 						to_sk, from_pk) != 0) {
