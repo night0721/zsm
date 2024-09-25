@@ -94,11 +94,11 @@ void mkdir_p(const char *file)
         snprintf(path, PATH_MAX, "%s%s", home, file + 1);
     } else {
         strcpy(path, file);
-     }
+    }
 
     /* fix first / not appearing in the string */
     if (path[0] == '/')
-        strcat(dir_path, "/");
+		strcat(dir_path, "/");
 
 	/* Find last occurrence of '/' */
 	char *last_slash = strrchr(path, '/'); 

@@ -86,8 +86,16 @@ keypair_t *get_keypair(char *username)
     }
 
 	uint8_t pk[PK_SIZE], sk[SK_SIZE];
-    fread(pk, 1, PK_SIZE, keyf);
-    fread(sk, 1, SK_SIZE, keyf);
+	size_t bytes_read;
+    bytes_read = fread(pk, 1, PK_SIZE, keyf);
+    if (bytes_read != PK_SIZE) {
+        error(1, "Error reading public key from file, bytes_read(%zu)!=%d", bytes_read, PK_SIZE);
+    }
+
+    bytes_read = fread(sk, 1, SK_SIZE, keyf);
+    if (bytes_read != SK_SIZE) {
+        error(1, "Error reading secret key from file, bytes_read(%zu)!=%d", bytes_read, SK_SIZE);
+    }
     fclose(keyf);
 
     keypair_t *kp = memalloc(sizeof(keypair_t));
