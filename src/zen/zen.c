@@ -122,7 +122,6 @@ void *receive_worker(void *arg)
 			decrypted[data_len] = '\0';
 			/* TODO: Use mutext before add messgae */
 			add_message(from, to, decrypted, data_len, time(NULL));
-			show_chat(from);
 			send_notification(from, decrypted);
 		}
     }
