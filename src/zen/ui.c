@@ -68,6 +68,7 @@ void ncurses_init()
     noecho();
     cbreak();
     keypad(stdscr, TRUE);
+	curs_set(0);
     /* check terminal has colors */
     if (!has_colors()) {
         endwin();
@@ -145,7 +146,9 @@ void draw_border(WINDOW *window, bool active)
     } else {
         wattroff(window, COLOR_PAIR(5));
     }
-    wrefresh(window);  /* Refresh the window to see the colored border and title */
+
+	/* Refresh the window to see the colored border and title */
+    wrefresh(window);
 }
 
 /*
@@ -267,7 +270,6 @@ void draw_users()
     wrefresh(panel);
     /* show chat conversation every time cursor changes */
     show_chat(users->items[current_user].name);
-    wrefresh(chat_content);
 }
 
 void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t length, time_t creation)
@@ -499,6 +501,16 @@ void add_username(char *username)
 	arraylist_add(users, username, randomco, false, false);
 }
 
+void update_textbox()
+{
+	wclear(textbox);
+	mvwprintw(textbox, 0, 0, "> %s", content);
+	wmove(textbox, 0, curs_pos + 2);
+	wrefresh(textbox);
+	/* Set cursor to visible */
+	curs_set(2);
+}
+
 void get_chatbox_content(int ch)
 {
     if (ch == KEY_BACKSPACE || ch == 127) {
@@ -517,8 +529,7 @@ void get_chatbox_content(int ch)
     }
 
     /* Display the current content */
-	mvwprintw(textbox, 0, 0, "> %s", content);
-	wrefresh(textbox);
+	update_textbox();
 }
 
 void send_message()
@@ -601,8 +612,6 @@ void send_message()
 	show_chat(recipient);
 }
 
-
-
 /*
  * Main loop of user interface
  */
@@ -612,31 +621,26 @@ void ui(int *fd)
     signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
+
+	srand(time(NULL));
+
     ncurses_init();
     windows_init();
-	sockfd = *fd;
-    users = arraylist_init(LINES);
-    marked = arraylist_init(100);
+
+	users = arraylist_init(LINES);
+	marked = arraylist_init(100);
+
 	sqlite_init();
 	get_users();
 	draw_users();
+
 	refresh();
+	sockfd = *fd;
     while (1) {
-		if (current_window == CHAT_WINDOW) {
-			wclear(textbox);
-			mvwprintw(textbox, 0, 0, "> %s", content);
-			wrefresh(textbox);
-			wmove(textbox, 0, curs_pos + 2);
-			/* Set cursor to visible */
-			curs_set(2);
-		} else {
-			/* Set cursor to invisible */
-			curs_set(0);
-		}
 		int ch = getch();
 		switch (ch) {
 			/* go up by k or up arrow */
-            case UP:
+            case 'k':
 				if (current_window == USERS_WINDOW) {
 					if (current_user > 0)
 						current_user--;
@@ -646,7 +650,7 @@ void ui(int *fd)
                 break;
 
 			 /* go down by j or down arrow */
-            case DOWN:
+            case 'j':
 				if (current_window == USERS_WINDOW) {
 					if (current_user < (users->length - 1))
 						current_user++;
@@ -662,9 +666,12 @@ void ui(int *fd)
 				if (current_window == USERS_WINDOW) {
 					draw_border(users_border, true);
 					draw_border(chat_border, false);
+					/* Set cursor to invisible */
+					curs_set(0);
 				} else {
 					draw_border(chat_border, true);
 					draw_border(users_border, false);
+					update_textbox();
 				}
 				break;
 
@@ -673,6 +680,7 @@ void ui(int *fd)
 					curs_pos = 0;
 					content[0] = '\0';
 				}
+				break;
 
 			case ENTER:
 				if (current_window == CHAT_WINDOW) {
@@ -684,9 +692,9 @@ void ui(int *fd)
 
 					/* Set content[0] for printing purposes */
 					content[0] = '\0';
+					update_textbox();
 				}
 				break;
-
 
 			default:
 				if (current_window == CHAT_WINDOW)
