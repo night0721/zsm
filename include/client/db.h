@@ -3,6 +3,9 @@
 
 #include <sqlite3.h>
 
-int sqlite_init();
+void get_users();
+uint8_t *get_sharedkey(uint8_t *username);
+void save_sharedkey(uint8_t *username, uint8_t *shared_key);
+void sqlite_init();
 
 #endif

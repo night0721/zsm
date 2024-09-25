@@ -204,14 +204,14 @@ int verify_packet(packet_t *pkt, int fd)
 	memcpy(from, pkt->data, MAX_NAME);
 
 	/* TODO: replace with db operations */
-	keypair_t *kp_from = get_keypair(from);
+	uint8_t *pk = get_pk_from_ks(from);
 	
 	/* Verify data confidentiality by signature */
 	/* Verify data integrity by hash */
 	uint8_t hash[HASH_SIZE];
     crypto_generichash(hash, HASH_SIZE, pkt->data, pkt->length, NULL, 0);
 
-	if (crypto_sign_verify_detached(pkt->signature, hash, HASH_SIZE, kp_from->pk.raw) != 0) {
+	if (crypto_sign_verify_detached(pkt->signature, hash, HASH_SIZE, pk) != 0) {
 		/* Not match */
 		error(0, "Cannot verify data integrity");
 		packet_t *error_pkt = create_packet(ZSM_STA_ERROR_INTEGRITY,

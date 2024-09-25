@@ -76,29 +76,39 @@ char *replace_home(char *str)
 /*
  * Recursively create directory by creating each subdirectory
  * like mkdir -p
+ * Create the parent folder(s) of given file
  */
-void mkdir_p(const char *destdir)
+void mkdir_p(const char *file)
 {
     char *path = memalloc(PATH_MAX);
     char dir_path[PATH_MAX];
+	dir_path[0] = '\0';
 
-    if (destdir[0] == '~') {
+    if (file[0] == '~') {
         char *home = getenv("HOME");
         if (home == NULL) {
 			write_log(LOG_ERROR, "$HOME not defined"); 
             return;
         }
         /* replace ~ with home */
-        snprintf(path, PATH_MAX, "%s%s", home, destdir + 1);
+        snprintf(path, PATH_MAX, "%s%s", home, file + 1);
     } else {
-        strcpy(path, destdir);
+        strcpy(path, file);
      }
 
     /* fix first / not appearing in the string */
     if (path[0] == '/')
         strcat(dir_path, "/");
 
-    char *token = strtok(path, "/");
+	/* Find last occurrence of '/' */
+	char *last_slash = strrchr(path, '/'); 
+
+	/* Remove last slash */
+    if (last_slash != NULL) {
+		path[last_slash - path] = '\0';
+	}
+
+	char *token = strtok(path, "/");
     while (token != NULL) {
         strcat(dir_path, token);
         strcat(dir_path, "/");
@@ -127,13 +137,13 @@ void write_log(int type, const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-	char *client_log = memalloc(PATH_MAX);
+	char client_log[PATH_MAX];
 	char *data_dir = replace_home(CLIENT_DATA_DIR);
-	snprintf(client_log, PATH_MAX, "%s/%s", data_dir, "zen.log");
+	snprintf(client_log, PATH_MAX, "%s/%s/zen.log", data_dir, USERNAME);
 	free(data_dir);
 	if (access(client_log, W_OK) != 0) {
 		/* If log file doesn't exist, most likely data dir won't exist too */
-		mkdir_p(CLIENT_DATA_DIR);
+		mkdir_p(client_log);
 	}
 
 	FILE *log = fopen(client_log, "a");
@@ -148,8 +158,9 @@ void write_log(int type, const char *fmt, ...)
 		strftime(time, 22, "%Y-%m-%d %H:%M:%S ", t);
 		char details[2 + type_len + 22];
 		snprintf(details, 2 + type_len + 22, "%s%s", logtype, time);
-		fprintf(log, "%s\n", details);
+		fprintf(log, "%s", details);
 		vfprintf(log, fmt, args);
+		fprintf(log, "\n");
 		fclose(log);
 	}
     va_end(args);

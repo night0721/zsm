@@ -25,7 +25,7 @@ all: $(SERVER) $(CLIENT)
 
 $(SERVER): $(SERVERSRC) $(LIBSRC)
 	mkdir -p bin
-	$(CC) $(SERVERSRC) $(LIBSRC) $(INCLUDE) -o bin/$@ $(CFLAGS) $(LDFLAGS)
+	$(CC) $(SERVERSRC) $(LIBSRC) $(INCLUDE) -DUSERNAME=\"$(username)\" -o bin/$@ $(CFLAGS) $(LDFLAGS)
 
 $(CLIENT): $(CLIENTSRC) $(LIBSRC)
 	mkdir -p bin

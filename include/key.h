@@ -29,5 +29,6 @@ typedef struct keypair_t {
 
 keypair_t *create_keypair(char *username);
 keypair_t *get_keypair(char *username);
+uint8_t *get_pk_from_ks(char *username);
 
 #endif

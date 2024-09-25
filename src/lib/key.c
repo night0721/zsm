@@ -32,16 +32,25 @@ keypair_t *create_keypair(char *username)
 	memcpy(pk, pk_data, PK_DATA_SIZE);
 	memcpy(pk + PK_DATA_SIZE, pk_sign, SIGN_SIZE);
 
-	/* USE DB INSTEAD OF FILES */
-	char pk_path[PATH_MAX], sk_path[PATH_MAX];
-	sprintf(pk_path, "/home/night/%s_pk", username);
-	sprintf(sk_path, "/home/night/%s_sk", username);
-	FILE *pkf = fopen(pk_path, "w+");
-	FILE *skf = fopen(sk_path, "w+");
-	fwrite(pk, 1, PK_SIZE, pkf);
-	fwrite(sk, 1, SK_SIZE, skf);
-	fclose(pkf);
-	fclose(skf);
+	char keyf_path[PATH_MAX];
+	char *data_dir = replace_home(CLIENT_DATA_DIR);
+	snprintf(keyf_path, PATH_MAX, "%s/%s/keys", data_dir, USERNAME);
+	free(data_dir);
+
+	if (access(keyf_path, W_OK) != 0) {
+		/* If data file doesn't exist, most likely data dir won't exist too */
+		mkdir_p(keyf_path);
+	}
+
+	FILE *keyf = fopen(keyf_path, "w+");
+	if (!keyf) {
+		error(1, "Error opening key file to write");
+		return NULL;
+	}
+	/* Write key to file */
+	fwrite(pk, 1, PK_SIZE, keyf);
+	fwrite(sk, 1, SK_SIZE, keyf);
+	fclose(keyf);
 
 	keypair_t *kp = memalloc(sizeof(keypair_t));
 	memcpy(kp->pk.raw, pk_raw, PK_RAW_SIZE);
@@ -51,29 +60,35 @@ keypair_t *create_keypair(char *username)
 	memcpy(kp->pk.full, pk, PK_SIZE);
 
 	memcpy(kp->sk, sk, SK_SIZE);
+	write_log(LOG_INFO, "Created key pair");
 
 	return kp;
 }
 
 keypair_t *get_keypair(char *username)
 {
-	/* REPLACE WITH DB */
-    char pk_path[PATH_MAX], sk_path[PATH_MAX];
-    sprintf(pk_path, "/home/night/%s_pk", username);
-    sprintf(sk_path, "/home/night/%s_sk", username);
-    FILE *pkf = fopen(pk_path, "r");
-    FILE *skf = fopen(sk_path, "r");
-    if (!pkf || !skf) {
+	char keyf_path[PATH_MAX];
+	char *data_dir = replace_home(CLIENT_DATA_DIR);
+	snprintf(keyf_path, PATH_MAX, "%s/%s/keys", data_dir, USERNAME);
+	free(data_dir);
+
+	if (access(keyf_path, W_OK) != 0) {
+		/* If data file doesn't exist, most likely data dir won't exist too */
+		mkdir_p(keyf_path);
+		/* Create key pair as file doesn't exist */
 		create_keypair(username);
-        printf("Error opening key files.\n");
+	}
+
+    FILE *keyf = fopen(keyf_path, "r");
+    if (!keyf) {
+		error(1, "Error opening key file to read");
         return NULL;
     }
 
 	uint8_t pk[PK_SIZE], sk[SK_SIZE];
-    fread(pk, 1, PK_SIZE, pkf);
-    fread(sk, 1, SK_SIZE, skf);
-    fclose(pkf);
-    fclose(skf);
+    fread(pk, 1, PK_SIZE, keyf);
+    fread(sk, 1, SK_SIZE, keyf);
+    fclose(keyf);
 
     keypair_t *kp = memalloc(sizeof(keypair_t));
 
@@ -86,4 +101,22 @@ keypair_t *get_keypair(char *username)
     memcpy(kp->sk, sk, SK_SIZE);
 
     return kp;
+}
+
+/*
+ * Get public key from key server
+ */
+uint8_t *get_pk_from_ks(char *username)
+{
+	size_t bin_len = PK_RAW_SIZE;
+    unsigned char *bin = memalloc(bin_len);
+	/* TEMPORARY */
+	if (strcmp(username, "night") == 0) {
+		sodium_hex2bin(bin, bin_len, "e2f0287d9c23aed8404dd8ba407e7dff8abe40fa98f0b9adf74904978a5fcd50", PK_RAW_SIZE * 2, NULL, NULL, NULL);
+		return bin;
+	} else if (strcmp(username, "palanix") == 0) {
+		sodium_hex2bin(bin, bin_len, "932aee08aa338108e49f65a5c4f0eb0a08a15bf717fdf8c0ff60eefd0ea014ae", PK_RAW_SIZE * 2, NULL, NULL, NULL);
+		return bin;
+	}
+	return NULL;
 }
