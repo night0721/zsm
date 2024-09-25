@@ -46,16 +46,6 @@ void *memalloc(size_t size)
     return ptr;
 }
 
-void *estrdup(void *str)
-{
-    void *modstr = strdup(str);
-    if (modstr == NULL) {
-		write_log(LOG_ERROR, "Error allocating memory"); 
-        return NULL;
-    }
-    return modstr;
-}
-
 /*
  * Takes heap-allocated str and replace ~ with home path
  * Returns heap-allocated newstr
