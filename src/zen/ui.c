@@ -230,7 +230,7 @@ void draw_users()
 
 		char line[name_len];
 		if (too_long) {
-			strncpy(line, seluser.name, name_len - 2);
+			strncpy(line, seluser.name, (MAX_NAME / 2) - 2);
 			strncat(line, "..", 2);
 		} else {
 			strcpy(line, seluser.name);
