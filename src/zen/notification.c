@@ -1,5 +1,5 @@
-#include "notification.h"
 #include "util.h"
+#include "zen/notification.h"
 
 void send_notification(uint8_t *author, uint8_t *content)
 {

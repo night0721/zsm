@@ -1,9 +1,9 @@
 #include "config.h"
 #include "packet.h"
 #include "util.h"
-#include "client/ui.h"
-#include "client/db.h"
-#include "client/user.h"
+#include "zen/ui.h"
+#include "zen/db.h"
+#include "zen/user.h"
 
 sqlite3 *db;
 char zen_db_path[PATH_MAX];

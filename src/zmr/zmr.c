@@ -1,8 +1,7 @@
 #include "packet.h"
 #include "util.h"
 #include "config.h"
-#include "notification.h"
-#include "server/server.h"
+#include "zmr/zmr.h"
 
 thread_t threads[MAX_THREADS];
 int num_thread = 0;

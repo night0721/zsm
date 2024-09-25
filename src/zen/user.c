@@ -3,7 +3,7 @@
 
 #include "packet.h"
 #include "util.h"
-#include "client/user.h"
+#include "zen/user.h"
 
 ArrayList *arraylist_init(size_t capacity)
 {

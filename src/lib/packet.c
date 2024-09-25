@@ -1,7 +1,6 @@
 #include "packet.h"
 #include "key.h"
 #include "util.h"
-#include "server/server.h"
 
 /*
  * Print contents of packet

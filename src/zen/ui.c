@@ -1,9 +1,9 @@
 #include "config.h"
 #include "packet.h"
 #include "util.h"
-#include "client/ui.h"
-#include "client/db.h"
-#include "client/user.h"
+#include "zen/ui.h"
+#include "zen/db.h"
+#include "zen/user.h"
 
 WINDOW *panel;
 WINDOW *users_border;
@@ -18,6 +18,7 @@ message_t messages[100];
 int num_messages = 0;
 long current_user = 0;
 int current_window = 0;
+int current_mode;
 int sockfd;
 
 /* For tracking cursor position in content */

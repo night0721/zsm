@@ -1,11 +1,10 @@
 #include "config.h"
 #include "packet.h"
 #include "key.h"
-#include "notification.h"
 #include "util.h"
-#include "client/ui.h"
-#include "client/db.h"
-#include "server/server.h"
+#include "zen/notification.h"
+#include "zen/ui.h"
+#include "zen/db.h"
 
 /*
  * Authenticate with server by signing a challenge
