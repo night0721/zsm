@@ -22,7 +22,6 @@ static int get_users_callback(void *_, int argc, char **argv, char **col_name)
 void get_users()
 {
 	char *err_msg;
-	sqlite3_stmt *statement;
 
 	if (sqlite3_open(zen_db_path, &db) != SQLITE_OK) {
 		error(0, "Cannot open database: %s", sqlite3_errmsg(db));

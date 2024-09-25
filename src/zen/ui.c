@@ -530,8 +530,6 @@ void send_message()
 	keypair_t *kp_from = get_keypair(USERNAME);
 	uint8_t *pk_to = get_pk_from_ks(recipient); /* ed25519 */
 
-	int status = ZSM_STA_SUCCESS;
-
 	uint8_t *shared_key = get_sharedkey(recipient);
 	if (shared_key == NULL) {
 		uint8_t shared_key[SHARED_KEY_SIZE];
