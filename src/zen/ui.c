@@ -264,7 +264,7 @@ void draw_users()
 			strncpy(line, seluser.name, (MAX_NAME / 2) - 2);
 			strncat(line, "..", 3);
 		} else {
-			strncpy(line, seluser.name, name_len);
+			strncpy(line, seluser.name, name_len + 1);
 			line[name_len] = '\0';
 		}
 
