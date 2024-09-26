@@ -24,7 +24,6 @@ int sockfd;
 /* For tracking cursor position in content */
 static int curs_pos = 0;
 static char content[MAX_MESSAGE_LENGTH];
-static char command[1000];
 
 /*
  * Free and close everything
