@@ -533,6 +533,14 @@ void add_username(char *username)
 	arraylist_add(users, username, randomco, false, false);
 }
 
+void reset_content()
+{
+	/* Reset for new input */
+	curs_pos = 0; 
+	/* Set content[0] for printing purposes */
+	content[0] = '\0';
+}
+
 void update_panel()
 {
 	wclear(panel);
@@ -692,12 +700,8 @@ void get_panel_content(int ch)
 			send_message();
 		} else if (current_mode == COMMAND) {
 			use_command();
-			return;
 		}
-		/* Reset for new input */
-		curs_pos = 0; 
-		/* Set content[0] for printing purposes */
-		content[0] = '\0';
+		reset_content();
 
 	} else if (curs_pos < MAX_MESSAGE_LENGTH - 1) {
 		/* Append it to the content if it is normal character */
@@ -786,6 +790,7 @@ void ui(int *fd)
 		int ch = getch();
 		switch (ch) {
 			case ESC:
+				reset_content();
 				current_mode = NORMAL;
 				current_window = USERS_WINDOW;
 				draw_border(users_border, true);
@@ -799,8 +804,6 @@ void ui(int *fd)
 			case '/':
 				if (current_mode == NORMAL) {
 					current_mode = COMMAND;
-					curs_pos = 0;
-					content[0] = '\0';
 					update_panel();
 				} else {	
 					get_panel_content(ch);
@@ -843,8 +846,7 @@ void ui(int *fd)
 
 			case CLEAR_INPUT:
 				if (current_window == CHAT_WINDOW) {
-					curs_pos = 0;
-					content[0] = '\0';
+					reset_content();
 				}
 				break;
 
