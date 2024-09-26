@@ -263,7 +263,7 @@ void draw_users()
 			strncpy(line, seluser.name, (MAX_NAME / 2) - 2);
 			strncat(line, "..", 2);
 		} else {
-			strcpy(line, seluser.name);
+			strncpy(line, seluser.name, name_len);
 		}
 
         int color = users->items[i].color;
