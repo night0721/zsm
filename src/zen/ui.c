@@ -254,16 +254,18 @@ void draw_users()
 		 */
 		int too_long = 0;
 		if (name_len > MAX_NAME / 2) {
-			name_len = MAX_NAME / 2;
+			/* Make space for truncation */
+			name_len = MAX_NAME / 2 - 2;
 			too_long = 1;
 		}
 
-		char line[name_len];
+		char line[name_len + 1];
 		if (too_long) {
 			strncpy(line, seluser.name, (MAX_NAME / 2) - 2);
-			strncat(line, "..", 2);
+			strncat(line, "..", 3);
 		} else {
 			strncpy(line, seluser.name, name_len);
+			line[name_len] = '\0';
 		}
 
         int color = users->items[i].color;
