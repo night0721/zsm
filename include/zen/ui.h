@@ -3,8 +3,28 @@
 
 #include <ncurses.h>
 
-#define USERS_WINDOW 0
-#define CHAT_WINDOW 1
+enum modes {
+	NORMAL,
+	INSERT,
+	COMMAND
+};
+
+enum windows {
+	USERS_WINDOW,
+	CHAT_WINDOW
+};
+
+enum colors {
+	BLUE = 9,
+	GREEN,
+	PEACH,
+	YELLOW,
+	LAVENDER,
+	PINK,
+	MAUVE,
+	RED,
+	SURFACE1
+};
 
 /* Key code */
 #define CTRLA 0x01
@@ -16,6 +36,9 @@
 #define LEFT 0x104
 #define RIGHT 0x105
 #define ENTER 0xA
+#define ESC 0x1B
+
+#define MAX_ARGS 10
 
 void ncurses_init();
 void windows_init();

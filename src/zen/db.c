@@ -92,8 +92,6 @@ void save_sharedkey(uint8_t *username, uint8_t *shared_key)
 	/* Statement to execute with values to be replaced */
 	char *sql = "INSERT OR REPLACE INTO Keys (Username,SharedKey)"
 		"VALUES (?,?);";
-	printf("in db\n");
-	print_bin(shared_key, SHARED_KEY_SIZE);
 	if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) {
 		error(0, "Failed to prepare statement: %s", sqlite3_errmsg(db));
 		sqlite3_close(db);

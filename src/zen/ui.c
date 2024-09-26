@@ -6,10 +6,10 @@
 #include "zen/user.h"
 
 WINDOW *panel;
+WINDOW *status_bar;
 WINDOW *users_border;
 WINDOW *chat_border;
 WINDOW *users_content;
-WINDOW *textbox;
 WINDOW *chat_content;
 
 ArrayList *users;
@@ -24,6 +24,7 @@ int sockfd;
 /* For tracking cursor position in content */
 static int curs_pos = 0;
 static char content[MAX_MESSAGE_LENGTH];
+static char command[1000];
 
 /*
  * Free and close everything
@@ -52,6 +53,19 @@ void signal_handler(int signal)
     }
 }
 
+/* 
+ * Convert hex to RGB values
+ * Create pair in ncurses 
+ */
+void create_pair(int hex_value, int index)
+{
+    int r = ((hex_value >> 16) & 0xFF) * 1000 / 255;
+    int g = ((hex_value >> 8) & 0xFF) * 1000 / 255;
+    int b = (hex_value & 0xFF) * 1000 / 255;
+	init_color(index, r, g, b);
+	init_pair(index, index, -1);
+}
+
 /*
  * Start ncurses
  */
@@ -62,14 +76,16 @@ void ncurses_init()
         error(1, "No tty detected. zen requires an interactive shell to run");
     }
 
-    /* initialize screen, don't print special chars,
+    /* initialize screen, don't print special chars
      * make ctrl + c work, don't show cursor 
      * enable arrow keys */
     initscr();
     noecho();
     cbreak();
     keypad(stdscr, TRUE);
+	set_escdelay(25);
 	curs_set(0);
+
     /* check terminal has colors */
     if (!has_colors()) {
         endwin();
@@ -87,6 +103,19 @@ void ncurses_init()
     init_pair(6, COLOR_MAGENTA, -1);    /*  */
     init_pair(7, COLOR_CYAN, -1);       /* Selected user */
     init_pair(8, COLOR_WHITE, -1);      /*  */
+
+	int colors[] = { 0x89b4fa, 0xa6e3a1, 0xfab387, 0xf9e2af, 0xb4befe, 0xf38ba8, 0xcba6f7, 0xf38ba8, 0x45475a };
+	int num_colors = sizeof(colors) / sizeof(colors[0]);
+	for (int i = 0; i < num_colors; i++) {
+		/* Custom color starts from 9 */
+		create_pair(colors[i], i + 9);
+	}
+
+	num_colors += 8;
+	/* for status bar */
+	init_pair(num_colors + 1, BLUE, SURFACE1);
+	init_pair(num_colors + 2, GREEN, SURFACE1);
+	init_pair(num_colors + 3, PEACH, SURFACE1);
 }
 
 /*
@@ -97,31 +126,31 @@ void windows_init()
     int users_width = MAX_NAME / 2;
     int chat_width = COLS - (MAX_NAME / 2);
 
-    /*------------------------------+
-    |-----border----||---border----||
+    /*----border----||---border-----+
     ||              ||             ||
     || content      || content     ||
     || (users)      ||  (chat)     ||
-    ||              ||-------------||
-    |---------------||-textbox-----||
+    ||              ||             ||
+    ||              ||             ||
+    ||----border----||---border----||
+    ==========status bar=============
     +==========panel===============*/
     
-    /*                     lines,								  cols,            y,									  x             */
-    panel =         newwin(PANEL_HEIGHT,						  COLS,            LINES - PANEL_HEIGHT,				  0              );
-    users_border =  newwin(LINES - PANEL_HEIGHT,				  users_width + 2, 0,									  0              );
-    chat_border =   newwin(LINES - PANEL_HEIGHT - TEXTBOX_HEIGHT, chat_width - 2,  0,									  users_width + 2);
-	textbox =		newwin(TEXTBOX_HEIGHT,						  chat_width - 2,  LINES - PANEL_HEIGHT - TEXTBOX_HEIGHT, users_width + 3);
+    /*                     lines,									 cols,            y,										x             */
+    panel =         newwin(PANEL_HEIGHT,							 COLS,            LINES - PANEL_HEIGHT,						0              );
+	status_bar =	newwin(STATUS_BAR_HEIGHT,						 COLS,			  LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, 0			   );
+    users_border =  newwin(LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, users_width + 2, 0,										0              );
+    chat_border =   newwin(LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, chat_width - 2,  0,										users_width + 2);
 
-    /*									 lines,										cols,            y,                    x             */
-    users_content = subwin(users_border, LINES - PANEL_HEIGHT - 2,					users_width,     1,                    1              );
-    chat_content =  subwin(chat_border,  LINES - PANEL_HEIGHT - 2 - TEXTBOX_HEIGHT, chat_width - 4,  1,                    users_width + 3);
+    /*									 lines,										   cols,            y,                    x             */
+    users_content = subwin(users_border, LINES - PANEL_HEIGHT - 2 - STATUS_BAR_HEIGHT, users_width,     1,                    1              );
+    chat_content =  subwin(chat_border,  LINES - PANEL_HEIGHT - 2 - STATUS_BAR_HEIGHT, chat_width - 4,  1,                    users_width + 3);
     
 	/* draw border around windows */
 	refresh();
     draw_border(users_border, true);
     draw_border(chat_border, false);
 
-	scrollok(textbox, true);
     scrollok(users_content, true);
     scrollok(chat_content, true);
     refresh();
@@ -459,6 +488,12 @@ void print_message(int flag, message_t *msg)
 	}
 }
 
+void move_cursor()
+{
+	wmove(panel, 0, current_mode == INSERT ? curs_pos + 2 : curs_pos + 1);
+	wrefresh(panel);
+}
+
 /*
  * Get chat conversation into buffer and show it to chat window
  */
@@ -489,60 +524,45 @@ void show_chat(uint8_t *recipient)
 		}
 	}
 	wrefresh(chat_content);
-	/* after printing move cursor back to textbox */
-	wmove(textbox, 0, curs_pos + 2);
-	wrefresh(textbox);
+	/* after printing move cursor back to panel */
+	move_cursor();
 }
-/*
- * Require heap allocated username
- */
+
 void add_username(char *username)
 {
-	int randomco = rand() % 8;
+	int randomco = rand() % 17;
 	arraylist_add(users, username, randomco, false, false);
 }
 
-void update_textbox()
+void update_panel()
 {
-	wclear(textbox);
-	mvwprintw(textbox, 0, 0, "> %s", content);
-	wmove(textbox, 0, curs_pos + 2);
-	wrefresh(textbox);
-	/* Set cursor to visible */
-	curs_set(2);
+	wclear(panel);
+	switch (current_mode) {
+		case INSERT:
+			if (current_window == CHAT_WINDOW) {
+				/* Set cursor to visible */
+				curs_set(2);
+				mvwprintw(panel, 0, 0, "> %s", content);
+			}
+			break;
+		case COMMAND:
+			/* Set cursor to visible */
+			curs_set(2);
+			mvwprintw(panel, 0, 0, "/%s", content);
+	}
+	move_cursor();
 }
 
-void get_chatbox_content(int ch)
+/*
+ * Key exchange with recipient
+ */
+uint8_t *client_kx(keypair_t *kp_from, uint8_t *recipient)
 {
-    if (ch == KEY_BACKSPACE || ch == 127) {
-        if (curs_pos > 0) {
-            curs_pos--;
-            content[curs_pos] = '\0';
-        }
-    }
-    /* Append it to the content if it is normal character */
-    else if (curs_pos < MAX_MESSAGE_LENGTH - 1) {
-		/* Filter readable ASCII */
-		if (ch > 31 && ch < 127) {
-			content[curs_pos++] = ch;
-			content[curs_pos] = '\0';
-		}
-    }
-
-    /* Display the current content */
-	update_textbox();
-}
-
-void send_message()
-{
-	uint8_t *recipient = users->items[current_user].name;
-
-	keypair_t *kp_from = get_keypair(USERNAME);
 	uint8_t *pk_to = get_pk_from_ks(recipient); /* ed25519 */
 
 	uint8_t *shared_key = get_sharedkey(recipient);
 	if (shared_key == NULL) {
-		uint8_t shared_key[SHARED_KEY_SIZE];
+		uint8_t *shared_key = memalloc(SHARED_KEY_SIZE);
 		
 		/* Key exchange need to be done with x25519 public and secret keys */
 		uint8_t from_pk[PK_X25519_SIZE];
@@ -567,6 +587,14 @@ void send_message()
 		}
 		save_sharedkey(recipient, shared_key);
 	}
+	return shared_key;
+}
+
+void send_message()
+{
+	keypair_t *kp_from = get_keypair(USERNAME);
+	uint8_t *recipient = users->items[current_user].name;
+	uint8_t *shared_key = client_kx(kp_from, recipient);
 
 	size_t content_len = strlen(content);
 
@@ -591,6 +619,7 @@ void send_message()
         /* Pad with null characters up to max length */
 		memset(recipient_padded + length, 0, MAX_NAME - length);
 	} else {
+		free(shared_key);
 		deinit();
 		error(1, "Recipient username must be shorter than MAX_NAME");
 	}
@@ -611,6 +640,122 @@ void send_message()
 	add_message(USERNAME, recipient, content, content_len, time(NULL));
 	free_packet(pkt);
 	show_chat(recipient);
+	free(shared_key);
+}
+
+void use_command()
+{
+	/* Parse slash command */
+	char *token = strtok(content, " ");
+	char *command[MAX_ARGS];
+	int args = 0;
+	while (token != NULL) {
+		command[args] = token;
+		token = strtok(NULL, " ");
+		args++;
+	}
+
+	if (strncmp(command[0], "chat", 4) == 0) {
+		keypair_t *kp_from = get_keypair(USERNAME);
+		client_kx(kp_from, command[1]);
+		current_user = arraylist_search(users, command[1]);
+		if (current_user == -1) {
+			/* If user is not in runtime user list as it is new to database
+			 * add it to runtime user list
+			 * as latest added would be at the end so index would be length -1
+			 */
+			add_username(command[1]);
+			current_user = users->length - 1;
+		}
+		draw_users();
+		show_chat(command[1]);
+	}
+
+	current_mode = NORMAL;
+	curs_set(0);
+}
+
+void get_panel_content(int ch)
+{
+	if (current_mode != COMMAND && current_mode != INSERT)
+		return;
+	
+    if (ch == KEY_BACKSPACE || ch == 127) {
+        if (curs_pos > 0) {
+            curs_pos--;
+            content[curs_pos] = '\0';
+        }
+    }
+	if (ch == ENTER) {
+		if (current_mode == INSERT && current_window == CHAT_WINDOW) {
+			content[curs_pos++] = ch;
+			content[curs_pos++] = '\0';
+			send_message();
+		} else if (current_mode == COMMAND) {
+			use_command();
+			return;
+		}
+		/* Reset for new input */
+		curs_pos = 0; 
+		/* Set content[0] for printing purposes */
+		content[0] = '\0';
+
+	} else if (curs_pos < MAX_MESSAGE_LENGTH - 1) {
+		/* Append it to the content if it is normal character */
+		/* Filter readable ASCII */
+		if (ch > 31 && ch < 127) {
+			content[curs_pos++] = ch;
+			content[curs_pos] = '\0';
+		}
+    }
+
+    /* Display the current content */
+	update_panel();
+}
+
+void draw_status_bar()
+{
+	wclear(status_bar);
+	wattron(status_bar, A_REVERSE);
+	wattron(status_bar, A_BOLD);
+
+	switch (current_mode) {
+		case NORMAL:
+			wattron(status_bar, COLOR_PAIR(BLUE));
+			wprintw(status_bar, " NORMAL ");
+			break;
+
+		case INSERT:
+			wattron(status_bar, COLOR_PAIR(GREEN));
+			wprintw(status_bar, " INSERT ");
+			break;
+
+		case COMMAND:
+			wattron(status_bar, COLOR_PAIR(PEACH));
+			wprintw(status_bar, " COMMAND ");
+			break;
+	}
+
+	wattroff(status_bar, A_BOLD);
+	wattroff(status_bar, A_REVERSE);
+	switch (current_mode) {
+		case NORMAL:
+			wattron(status_bar, COLOR_PAIR(BLUE + 9));
+			break;
+
+		case INSERT:
+			wattron(status_bar, COLOR_PAIR(GREEN + 9));
+			break;
+
+		case COMMAND:
+			wattron(status_bar, COLOR_PAIR(PEACH + 9));
+			break;
+	}
+	wprintw(status_bar, " %s ", USERNAME);
+
+
+	wrefresh(status_bar);
+	move_cursor();
 }
 
 /*
@@ -638,41 +783,62 @@ void ui(int *fd)
 	refresh();
 	sockfd = *fd;
     while (1) {
+		draw_status_bar();
 		int ch = getch();
 		switch (ch) {
+			case ESC:
+				current_mode = NORMAL;
+				current_window = USERS_WINDOW;
+				draw_border(users_border, true);
+				draw_border(chat_border, false);
+				/* Set cursor to invisible */
+				curs_set(0);
+				/* Automatically change it back to normal mode */
+				update_panel();
+				break;
+
+			case '/':
+				if (current_mode == NORMAL) {
+					current_mode = COMMAND;
+					curs_pos = 0;
+					content[0] = '\0';
+					update_panel();
+				} else {	
+					get_panel_content(ch);
+				}
+				break;
+
+			case 'i':
+				if (current_mode == NORMAL) {
+					current_mode = INSERT;
+					current_window = CHAT_WINDOW;
+					draw_border(chat_border, true);
+					draw_border(users_border, false);
+					update_panel();
+				} else {
+					get_panel_content(ch);
+				}
+				break;
+
 			/* go up by k or up arrow */
             case 'k':
-				if (current_window == USERS_WINDOW) {
+				if (current_mode == NORMAL && current_window == USERS_WINDOW) {
 					if (current_user > 0)
 						current_user--;
-
-					draw_users();
+					draw_users();	
+				} else {
+					get_panel_content(ch);
 				}
-                break;
+				break;
 
 			 /* go down by j or down arrow */
             case 'j':
-				if (current_window == USERS_WINDOW) {
+				if (current_mode == NORMAL && current_window == USERS_WINDOW) {
 					if (current_user < (users->length - 1))
 						current_user++;
-
 					draw_users();
-				}
-                break;
-
-			/* A is normally for left and E for right */
-			case CTRLA:
-			case CTRLE:
-				current_window ^= 1;
-				if (current_window == USERS_WINDOW) {
-					draw_border(users_border, true);
-					draw_border(chat_border, false);
-					/* Set cursor to invisible */
-					curs_set(0);
 				} else {
-					draw_border(chat_border, true);
-					draw_border(users_border, false);
-					update_textbox();
+					get_panel_content(ch);
 				}
 				break;
 
@@ -683,24 +849,8 @@ void ui(int *fd)
 				}
 				break;
 
-			case ENTER:
-				if (current_window == CHAT_WINDOW) {
-					content[curs_pos++] = ch;
-					content[curs_pos++] = '\0';
-					send_message();
-					/* Reset for new input */
-					curs_pos = 0; 
-
-					/* Set content[0] for printing purposes */
-					content[0] = '\0';
-					update_textbox();
-				}
-				break;
-
 			default:
-				if (current_window == CHAT_WINDOW)
-					get_chatbox_content(ch);
-
+				get_panel_content(ch);
 		}
     }
 	deinit();
