@@ -4,13 +4,13 @@
 #define MAX_CONNECTION_QUEUE 128 /* for listen() */
 #define MAX_EVENTS 64 /* Max events can be returned simulataneouly by epoll */
 
-typedef struct client_t {
+typedef struct {
 	int fd; /* File descriptor for client socket */
 	uint8_t *shared_key;
 	char username[MAX_NAME]; /* Username of client */
 } client_t;
 
-typedef struct thread_t {
+typedef struct {
 	int epoll_fd; /* epoll instance for each thread */
 	pthread_t thread; /* POSIX thread */
 	int num_clients; /* Number of active clients in thread */

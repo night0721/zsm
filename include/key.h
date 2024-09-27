@@ -16,7 +16,7 @@
 #define SK_SIZE SK_ED25519_SIZE 
 #define SHARED_KEY_SIZE crypto_kx_SESSIONKEYBYTES
 
-typedef struct public_key {
+typedef struct {
 	uint8_t raw[PK_ED25519_SIZE];
 	uint8_t username[MAX_NAME];
 	time_t creation;
@@ -24,7 +24,7 @@ typedef struct public_key {
 	uint8_t	full[PK_SIZE];
 } public_key;
 
-typedef struct keypair_t {
+typedef struct {
 	public_key pk;
 	uint8_t sk[SK_SIZE];
 } keypair_t;

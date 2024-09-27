@@ -5,12 +5,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-typedef struct user {
+typedef struct {
     uint8_t name[MAX_NAME];
     int color;
 } user;
 
-typedef struct ArrayList {
+typedef struct {
     size_t length;
     size_t capacity;
     user *items;

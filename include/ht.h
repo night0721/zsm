@@ -3,7 +3,7 @@
 
 #define TABLE_SIZE 100
 
-typedef struct client {
+typedef struct {
     int id;
     char name[32];
     //pthread_t thread;

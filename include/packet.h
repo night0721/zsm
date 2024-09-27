@@ -60,7 +60,7 @@
 #define ADDITIONAL_SIZE crypto_box_MACBYTES /* 16 */
 #define MAX_MESSAGE_LENGTH MAX_DATA_LENGTH - MAX_NAME * 2 - NONCE_SIZE
 
-typedef struct packet_t {
+typedef struct {
     uint8_t status;
     uint8_t type;
     uint32_t length;
@@ -68,7 +68,7 @@ typedef struct packet_t {
     uint8_t *signature;
 } packet_t;
 
-typedef struct message_t {
+typedef struct {
 	uint8_t author[MAX_NAME];
 	uint8_t recipient[MAX_NAME];
 	uint8_t *content;
