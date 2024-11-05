@@ -142,9 +142,11 @@ int main()
     }
 	
 	/* Init libnotify with app name */
+#ifndef USE_LUFT
     if (notify_init("zen") < 0) {
         error(1, "Error initializing libnotify");
     }
+#endif
 
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {

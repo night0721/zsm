@@ -4,8 +4,10 @@
 #define MAX_CLIENTS_PER_THREAD 1024
 
 /* Client */
-#define DOMAIN "127.0.0.1"
-/* #define USERNAME "night" */
+#define DOMAIN "zsm.night0721.xyz"
+#define USERNAME "night"
+
+#define USE_LUFT
 
 /* UI */
 #define PANEL_HEIGHT 1

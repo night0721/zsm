@@ -1,7 +1,6 @@
 .POSIX:
 .SUFFIXES:
 
-CC = cc
 VERSION = 1.0
 SERVER = zmr
 CLIENT = zen
@@ -11,24 +10,24 @@ PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 MANDIR = $(PREFIX)/share/man/man1
 
-# Flags
-LDFLAGS = $(shell pkg-config --libs libsodium libnotify ncurses sqlite3)
-CFLAGS = -O3 -mtune=native -march=native -pipe -s -std=c99 -Wno-pointer-sign -pedantic -Wall -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 $(shell pkg-config --cflags libsodium libnotify ncurses sqlite3) -lpthread
+LDFLAGS != pkg-config --libs libsodium libnotify ncurses sqlite3
+INCFLAGS != pkg-config --cflags libsodium libnotify ncurses sqlite3
+CFLAGS = -Os -mtune=native -march=native -pipe -g -std=c99 -Wno-pointer-sign -pedantic -Wall -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 $(INCFLAGS) -lpthread -lluft -L.
 
-SERVERSRC = src/zmr/*.c
-CLIENTSRC = src/zen/*.c
-LIBSRC = src/lib/*.c
-INCLUDE = -Iinclude/
+SERVERSRC != find src/zmr -name "*.c"
+CLIENTSRC != find src/zen -name "*.c"
+LIBSRC != find src/lib -name "*.c"
+INCLUDE = include
 
 all: $(SERVER) $(CLIENT)
 
 $(SERVER): $(SERVERSRC) $(LIBSRC)
 	mkdir -p bin
-	$(CC) $(SERVERSRC) $(LIBSRC) $(INCLUDE) -o bin/$@ $(CFLAGS) $(LDFLAGS)
+	$(CC) $(SERVERSRC) $(LIBSRC) -I$(INCLUDE) -I. -o bin/$@ $(CFLAGS) $(LDFLAGS)
 
 $(CLIENT): $(CLIENTSRC) $(LIBSRC)
 	mkdir -p bin
-	$(CC) $(CLIENTSRC) $(LIBSRC) $(INCLUDE) -o bin/$@ $(CFLAGS) $(LDFLAGS)
+	$(CC) $(CLIENTSRC) $(LIBSRC) -I$(INCLUDE) -I. -o bin/$@ $(CFLAGS) $(LDFLAGS)
 
 dist:
 	mkdir -p $(TARGET)-$(VERSION)
@@ -48,11 +47,11 @@ install: $(TARGET)
 	chmod 644 $(DESTDIR)$(MANDIR)/$(MANPAGE)
 
 uninstall:
-	$(RM) $(DESTDIR)$(BINDIR)/$(SERVER)
-	$(RM) $(DESTDIR)$(BINDIR)/$(CLIENT)
-	$(RM) $(DESTDIR)$(MANDIR)/$(MANPAGE)
+	rm $(DESTDIR)$(BINDIR)/$(SERVER)
+	rm $(DESTDIR)$(BINDIR)/$(CLIENT)
+	rm $(DESTDIR)$(MANDIR)/$(MANPAGE)
 
 clean:
-	$(RM) $(SERVER) $(CLIENT)
+	rm $(SERVER) $(CLIENT)
 
 .PHONY: all dist install uninstall clean
