@@ -10,8 +10,8 @@ typedef struct {
 } client;
 
 unsigned int hash(char *name);
-void hashtable_init();
-void hashtable_print();
+void hashtable_init(void);
+void hashtable_print(void);
 int hashtable_add(client *p);
 client *hashtable_search(char *name);
 
