@@ -11,6 +11,7 @@ BINDIR = $(PREFIX)/bin
 MANDIR = $(PREFIX)/share/man/man1
 
 LDFLAGS != pkg-config --libs libsodium libnotify ncurses sqlite3
+LDFLAGS += -L$(PWD)
 INCFLAGS != pkg-config --cflags libsodium libnotify ncurses sqlite3
 CFLAGS = -Os -mtune=native -march=native -pipe -s -std=c99 -Wno-pointer-sign -pedantic -Wall -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 $(INCFLAGS) -lpthread -lluft -L.
 
