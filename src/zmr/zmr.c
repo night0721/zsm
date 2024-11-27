@@ -13,71 +13,71 @@ int debug = 0;
 int authenticate_client(int clientfd, uint8_t *username)
 {
 	/* Create a challenge */
-    uint8_t *challenge = memalloc(CHALLENGE_SIZE);
-    randombytes_buf(challenge, CHALLENGE_SIZE);
+	uint8_t *challenge = memalloc(CHALLENGE_SIZE);
+	randombytes_buf(challenge, CHALLENGE_SIZE);
 
-    /* Sending fake signature as structure requires it */
-    uint8_t *fake_sig =	create_signature(NULL, 0, NULL);
+	/* Sending fake signature as structure requires it */
+	uint8_t *fake_sig =	create_signature(NULL, 0, NULL);
 
-    packet_t *pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE, challenge,
+	packet_t *pkt = create_packet(1, ZSM_TYP_AUTH, CHALLENGE_SIZE, challenge,
 			fake_sig);
 
-    if (send_packet(pkt, clientfd) != ZSM_STA_SUCCESS) {
-        error(0, "Could not authenticate client");
-        goto failure;
-    }
-    free(fake_sig);
+	if (send_packet(pkt, clientfd) != ZSM_STA_SUCCESS) {
+		error(0, "Could not authenticate client");
+		goto failure;
+	}
+	free(fake_sig);
 
-    int status;
-    if ((status = recv_packet(pkt, clientfd, ZSM_TYP_AUTH)
+	int status;
+	if ((status = recv_packet(pkt, clientfd, ZSM_TYP_AUTH)
 				!= ZSM_STA_SUCCESS)) {
-        error(0, "Could not authenticate client");
-        goto failure;
-    }
+		error(0, "Could not authenticate client");
+		goto failure;
+	}
 
 	uint8_t pk_bin[PK_ED25519_SIZE], pk_username[MAX_NAME];
 	memcpy(pk_bin, pkt->data, PK_ED25519_SIZE);
 	memcpy(pk_username, pkt->data + PK_ED25519_SIZE, MAX_NAME);
 
-    if (crypto_sign_verify_detached(pkt->signature, challenge, CHALLENGE_SIZE,
+	if (crypto_sign_verify_detached(pkt->signature, challenge, CHALLENGE_SIZE,
 				pk_bin) != 0) {
 		free_packet(pkt);
-        error(0, "Incorrect signature, could not authenticate client");
-        goto failure;
-    } else {
+		error(0, "Incorrect signature, could not authenticate client");
+		goto failure;
+	} else {
 		pkt->status = ZSM_STA_AUTHORISED;
 		pkt->type = ZSM_TYP_INFO;
 		pkt->length = 0;
 		pkt->data = NULL;
 		pkt->signature = NULL;
 		send_packet(pkt, clientfd);
-        free_packet(pkt);
+		free_packet(pkt);
 		strcpy(username, pk_username);
-        return ZSM_STA_SUCCESS;
-    }
+		return ZSM_STA_SUCCESS;
+	}
 failure:;
 		/*
 	packet_t *error_pkt = create_packet(ZSM_STA_UNAUTHORISED, ZSM_TYP_ERROR,
 			0, NULL, create_signature(NULL, 0, NULL));
-    send_packet(error_pkt, clientfd);
-    free_packet(error_pkt);
+	send_packet(error_pkt, clientfd);
+	free_packet(error_pkt);
 	*/
-    close(clientfd);
-    return ZSM_STA_ERROR_AUTHENTICATE;
+	close(clientfd);
+	return ZSM_STA_ERROR_AUTHENTICATE;
 }
 
 void signal_handler(int signal)
 {
-    switch (signal) {
-        case SIGPIPE:
-            error(0, "SIGPIPE received");
-            break;
-        case SIGABRT:
-        case SIGINT:
-        case SIGTERM:
-            error(1, "Shutdown signal received");
-            break;
-    }
+	switch (signal) {
+		case SIGPIPE:
+			error(0, "SIGPIPE received");
+			break;
+		case SIGABRT:
+		case SIGINT:
+		case SIGTERM:
+			error(1, "Shutdown signal received");
+			break;
+	}
 }
 
 int get_clientfd(uint8_t *username)
@@ -109,9 +109,9 @@ void *thread_worker(void *arg)
 			error(0, "epoll_wait");
 		}
 		for (int i = 0; i < num_events; i++) {
-            client_t *client = (client_t *) events[i].data.ptr;
+			client_t *client = (client_t *) events[i].data.ptr;
 
-            if (events[i].events & EPOLLIN) {
+			if (events[i].events & EPOLLIN) {
 				/* Handle packet */
 				/* TODO: Mutex lock when handle packet */
 				packet_t pkt;
@@ -141,23 +141,23 @@ void *thread_worker(void *arg)
 					}
 				}
 			}
-        }
+		}
 	}
 }
 
 int main(int argc, char **argv)
 {
-    if (sodium_init() < 0) {
-        error(1, "Error initializing libsodium");
-    }
+	if (sodium_init() < 0) {
+		error(1, "Error initializing libsodium");
+	}
 	
 	if (argc == 2 && strcmp(argv[1], "-d") == 0) {
 		/* Turns on debug flag */
 		debug = 1;
 	}
-    
-    signal(SIGPIPE, signal_handler);
-    signal(SIGABRT, signal_handler);
+	
+	signal(SIGPIPE, signal_handler);
+	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
@@ -166,28 +166,28 @@ int main(int argc, char **argv)
 
 	/* Create socket */
 	serverfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverfd < 0) {
-        error(1, "Error on opening socket");
-    }
+	if (serverfd < 0) {
+		error(1, "Error on opening socket");
+	}
 
-    /* Reuse address (for debug) */
-    int opt = 1;
-    if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        error(1, "Error at setting SO_REUSEADDR");
-    }
+	/* Reuse address (for debug) */
+	int opt = 1;
+	if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+		error(1, "Error at setting SO_REUSEADDR");
+	}
 
 	struct sockaddr_in server_addr, client_addr;
 	socklen_t client_addr_len = sizeof(client_addr);
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = INADDR_ANY;
+	server_addr.sin_port = htons(PORT);
 
-    if (bind(serverfd, (struct sockaddr *) &server_addr
+	if (bind(serverfd, (struct sockaddr *) &server_addr
 				, sizeof(server_addr)) < 0) {
 		close(serverfd);
-        error(1, "Error on bind");
-    }
+		error(1, "Error on bind");
+	}
 
 	/* Creating thread pool */
 	for (int i = 0; i < MAX_THREADS; i++) {
@@ -209,8 +209,8 @@ int main(int argc, char **argv)
 
 	if (listen(serverfd, MAX_CONNECTION_QUEUE) < 0) {
 		close(serverfd);
-        error(1, "Error on listen");
-    }
+		error(1, "Error on listen");
+	}
 	
 	error(0, "Listening on port %d", PORT);
 
@@ -245,16 +245,16 @@ int main(int argc, char **argv)
 			continue;
 		}
 
-        /* Add the new client to the thread's epoll instance */
-        struct epoll_event event;
-        event.data.ptr = client;
-        event.events = EPOLLIN;
+		/* Add the new client to the thread's epoll instance */
+		struct epoll_event event;
+		event.data.ptr = client;
+		event.events = EPOLLIN;
 
-        if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, clientfd, &event) == -1) {
-            perror("Failed to add client to epoll");
-            close(clientfd);
-            continue;
-        }
+		if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, clientfd, &event) == -1) {
+			perror("Failed to add client to epoll");
+			close(clientfd);
+			continue;
+		}
 
 		/* Assign fd to client in a thread */
 		client->fd = clientfd;
@@ -268,10 +268,10 @@ int main(int argc, char **argv)
 
 	/* End the thread */
 	for (int i = 0; i < MAX_THREADS; i++) {
-        if (pthread_join(threads[i].thread, NULL) != 0) {
-            error(0, "pthread_join");
-        }
-    }
+		if (pthread_join(threads[i].thread, NULL) != 0) {
+			error(0, "pthread_join");
+		}
+	}
 	close(serverfd);
-    return 0;
+	return 0;
 }
