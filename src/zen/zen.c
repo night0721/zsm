@@ -13,15 +13,15 @@ int authenticate_server(int *sockfd)
 {
 	keypair_t *kp = get_keypair(USERNAME);
 	/* create empty packet */
-    packet_t *pkt = create_packet(0, 0, 0, NULL, NULL);
-    int status;
-    if ((status = recv_packet(pkt, *sockfd, ZSM_TYP_AUTH) != ZSM_STA_SUCCESS)) {
-        return status;
-    }
-    uint8_t *challenge = pkt->data;
-    
-    uint8_t *sig = memalloc(SIGN_SIZE);
-    crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk);
+	packet_t *pkt = create_packet(0, 0, 0, NULL, NULL);
+	int status;
+	if ((status = recv_packet(pkt, *sockfd, ZSM_TYP_AUTH) != ZSM_STA_SUCCESS)) {
+		return status;
+	}
+	uint8_t *challenge = pkt->data;
+	
+	uint8_t *sig = memalloc(SIGN_SIZE);
+	crypto_sign_detached(sig, NULL, challenge, CHALLENGE_SIZE, kp->sk);
 
 	uint8_t *pk_full = memalloc(PK_SIZE);
 	memcpy(pk_full, kp->pk.full, PK_SIZE);
@@ -32,12 +32,12 @@ int authenticate_server(int *sockfd)
 	pkt->data = pk_full;
 	pkt->signature = sig;
 
-    if ((status = send_packet(pkt, *sockfd)) != ZSM_STA_SUCCESS) {
-        /* fd already closed */
-        error(0, "Could not authenticate with server, status: %d", status);
-        free_packet(pkt);
-        return ZSM_STA_ERROR_AUTHENTICATE;
-    }
+	if ((status = send_packet(pkt, *sockfd)) != ZSM_STA_SUCCESS) {
+		/* fd already closed */
+		error(0, "Could not authenticate with server, status: %d", status);
+		free_packet(pkt);
+		return ZSM_STA_ERROR_AUTHENTICATE;
+	}
 
 	if ((status = recv_packet(pkt, *sockfd, ZSM_TYP_INFO)) != ZSM_STA_SUCCESS) {
 		return status;
@@ -54,7 +54,7 @@ void *ui_worker(void *arg)
 {
 	int *sockfd = (int *) arg;
 	ui(sockfd);
-    return NULL;
+	return NULL;
 }
 
 /*
@@ -63,16 +63,16 @@ void *ui_worker(void *arg)
 void *receive_worker(void *arg)
 {
 	int *sockfd = (int *) arg;
-    while (1) {
+	while (1) {
 		packet_t pkt;
 		int status = verify_packet(&pkt, *sockfd);
-        if (status != ZSM_STA_SUCCESS) {
+		if (status != ZSM_STA_SUCCESS) {
 			if (status == ZSM_STA_CLOSED_CONNECTION) {
 				deinit();
 				error(1, "Server closed connection");
 			}
 			error(0, "Error verifying packet");
-        }
+		}
 		size_t cipher_len = pkt.length - NONCE_SIZE - MAX_NAME * 2;
 		size_t data_len = cipher_len - ADDITIONAL_SIZE;
 
@@ -130,42 +130,42 @@ void *receive_worker(void *arg)
 			add_message(from, to, decrypted, data_len, time(NULL));
 			send_notification(from, decrypted);
 		}
-    }
+	}
 
-    return NULL;
+	return NULL;
 }
 
 int main()
 {
-    if (sodium_init() < 0) {
-        write_log(LOG_ERROR, "Error initializing libsodium");
-    }
+	if (sodium_init() < 0) {
+		write_log(LOG_ERROR, "Error initializing libsodium");
+	}
 	
 	/* Init libnotify with app name */
 #ifndef USE_LUFT
-    if (notify_init("zen") < 0) {
-        error(1, "Error initializing libnotify");
-    }
+	if (notify_init("zen") < 0) {
+		error(1, "Error initializing libnotify");
+	}
 #endif
 
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        error(1, "Error on opening socket");
-    }
+	if (sockfd < 0) {
+		error(1, "Error on opening socket");
+	}
 
-    struct hostent *server = gethostbyname(DOMAIN);
-    if (server == NULL) {
-        error(1, "No such host %s", DOMAIN);
-    }
+	struct hostent *server = gethostbyname(DOMAIN);
+	if (server == NULL) {
+		error(1, "No such host %s", DOMAIN);
+	}
 
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
-    memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+	struct sockaddr_in server_addr;
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(PORT);
+	memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
 
 /*  free(server); Can't be freed seems */
-    if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr))
+	if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr))
 			< 0) {
 		error(1, "Error on connect");
 		close(sockfd);
@@ -173,9 +173,9 @@ int main()
 	}
 
 	write_log(LOG_INFO, "Connected to server at %s", DOMAIN);
-    if (authenticate_server(&sockfd) != ZSM_STA_SUCCESS) {
-        /* Fatal */
-        error(1, "Error authenticating with server");
+	if (authenticate_server(&sockfd) != ZSM_STA_SUCCESS) {
+		/* Fatal */
+		error(1, "Error authenticating with server");
 	} else {
 		write_log(LOG_INFO, "Authenticated to server as %s", USERNAME);
 	}
@@ -184,21 +184,21 @@ int main()
 	/* Create threads for sending and receiving messages */
 	pthread_t ui_thread, receive_thread;
 
-    if (pthread_create(&ui_thread, NULL, ui_worker, &sockfd) != 0) {
+	if (pthread_create(&ui_thread, NULL, ui_worker, &sockfd) != 0) {
 		close(sockfd);
-        error(1, "Failed to create send thread");
-        exit(EXIT_FAILURE);
-    }
+		error(1, "Failed to create send thread");
+		exit(EXIT_FAILURE);
+	}
 
-    if (pthread_create(&receive_thread, NULL, receive_worker, &sockfd) != 0) {
+	if (pthread_create(&receive_thread, NULL, receive_worker, &sockfd) != 0) {
 		close(sockfd);
 		error(1, "Failed to create receive thread");
-    }
+	}
 
 	/* Wait for threads to finish */
-    pthread_join(ui_thread, NULL);
-    pthread_join(receive_thread, NULL);
+	pthread_join(ui_thread, NULL);
+	pthread_join(receive_thread, NULL);
 
-    close(sockfd);
-    return 0;
+	close(sockfd);
+	return 0;
 }

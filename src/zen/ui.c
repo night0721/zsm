@@ -39,17 +39,17 @@ void deinit()
 
 void signal_handler(int signal)
 {
-    switch (signal) {
-        case SIGPIPE:
-            error(0, "SIGPIPE received");
-            break;
-        case SIGABRT:
-        case SIGINT:
-        case SIGTERM:
+	switch (signal) {
+		case SIGPIPE:
+			error(0, "SIGPIPE received");
+			break;
+		case SIGABRT:
+		case SIGINT:
+		case SIGTERM:
 			deinit();
 			error(1, "Shutdown signal received");
-            break;
-    }
+			break;
+	}
 }
 
 /* 
@@ -58,9 +58,9 @@ void signal_handler(int signal)
  */
 void create_pair(int hex_value, int index)
 {
-    int r = ((hex_value >> 16) & 0xFF) * 1000 / 255;
-    int g = ((hex_value >> 8) & 0xFF) * 1000 / 255;
-    int b = (hex_value & 0xFF) * 1000 / 255;
+	int r = ((hex_value >> 16) & 0xFF) * 1000 / 255;
+	int g = ((hex_value >> 8) & 0xFF) * 1000 / 255;
+	int b = (hex_value & 0xFF) * 1000 / 255;
 	init_color(index, r, g, b);
 	init_pair(index, index, -1);
 }
@@ -70,38 +70,38 @@ void create_pair(int hex_value, int index)
  */
 void ncurses_init()
 {
-    /* check if it is interactive shell */
-    if (!isatty(STDIN_FILENO)) {
-        error(1, "No tty detected. zen requires an interactive shell to run");
-    }
+	/* check if it is interactive shell */
+	if (!isatty(STDIN_FILENO)) {
+		error(1, "No tty detected. zen requires an interactive shell to run");
+	}
 
-    /* initialize screen, don't print special chars
-     * make ctrl + c work, don't show cursor 
-     * enable arrow keys */
-    initscr();
-    noecho();
-    cbreak();
-    keypad(stdscr, TRUE);
+	/* initialize screen, don't print special chars
+	 * make ctrl + c work, don't show cursor 
+	 * enable arrow keys */
+	initscr();
+	noecho();
+	cbreak();
+	keypad(stdscr, TRUE);
 	set_escdelay(25);
 	curs_set(0);
 
-    /* check terminal has colors */
-    if (!has_colors()) {
-        endwin();
-        error(1, "Color is not supported in your terminal");
-    } else {
-        use_default_colors();
-        start_color();
-    }
-    /* colors */
-    init_pair(1, COLOR_BLACK, -1);      /*  */
-    init_pair(2, COLOR_RED, -1);        /*  */
-    init_pair(3, COLOR_GREEN, -1);      /* active window */
-    init_pair(4, COLOR_YELLOW, -1);     /*  */
-    init_pair(5, COLOR_BLUE, -1);       /* inactive window */ 
-    init_pair(6, COLOR_MAGENTA, -1);    /*  */
-    init_pair(7, COLOR_CYAN, -1);       /* Selected user */
-    init_pair(8, COLOR_WHITE, -1);      /*  */
+	/* check terminal has colors */
+	if (!has_colors()) {
+		endwin();
+		error(1, "Color is not supported in your terminal");
+	} else {
+		use_default_colors();
+		start_color();
+	}
+	/* colors */
+	init_pair(1, COLOR_BLACK, -1);	  /*  */
+	init_pair(2, COLOR_RED, -1);		/*  */
+	init_pair(3, COLOR_GREEN, -1);	  /* active window */
+	init_pair(4, COLOR_YELLOW, -1);	 /*  */
+	init_pair(5, COLOR_BLUE, -1);	   /* inactive window */ 
+	init_pair(6, COLOR_MAGENTA, -1);	/*  */
+	init_pair(7, COLOR_CYAN, -1);	   /* Selected user */
+	init_pair(8, COLOR_WHITE, -1);	  /*  */
 
 	int colors[] = { 0x89b4fa, 0xa6e3a1, 0xfab387, 0xf9e2af, 0xb4befe, 0xf38ba8, 0xcba6f7, 0xf38ba8, 0x45475a };
 	int num_colors = sizeof(colors) / sizeof(colors[0]);
@@ -122,37 +122,37 @@ void ncurses_init()
  */
 void windows_init()
 {
-    int users_width = MAX_NAME / 2;
-    int chat_width = COLS - (MAX_NAME / 2);
+	int users_width = MAX_NAME / 2;
+	int chat_width = COLS - (MAX_NAME / 2);
 
-    /*----border----||---border-----+
-    ||              ||             ||
-    || content      || content     ||
-    || (users)      ||  (chat)     ||
-    ||              ||             ||
-    ||              ||             ||
-    ||----border----||---border----||
-    ==========status bar=============
-    +==========panel===============*/
-    
-    /*                     lines,									 cols,            y,										x             */
-    panel =         newwin(PANEL_HEIGHT,							 COLS,            LINES - PANEL_HEIGHT,						0              );
+	/*----border----||---border-----+
+	||			  ||			 ||
+	|| content	  || content	 ||
+	|| (users)	  ||  (chat)	 ||
+	||			  ||			 ||
+	||			  ||			 ||
+	||----border----||---border----||
+	==========status bar=============
+	+==========panel===============*/
+	
+	/*					 lines,									 cols,			y,										x			 */
+	panel =		 newwin(PANEL_HEIGHT,							 COLS,			LINES - PANEL_HEIGHT,						0			  );
 	status_bar =	newwin(STATUS_BAR_HEIGHT,						 COLS,			  LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, 0			   );
-    users_border =  newwin(LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, users_width + 2, 0,										0              );
-    chat_border =   newwin(LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, chat_width - 2,  0,										users_width + 2);
+	users_border =  newwin(LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, users_width + 2, 0,										0			  );
+	chat_border =   newwin(LINES - PANEL_HEIGHT - STATUS_BAR_HEIGHT, chat_width - 2,  0,										users_width + 2);
 
-    /*									 lines,										   cols,            y,                    x             */
-    users_content = subwin(users_border, LINES - PANEL_HEIGHT - 2 - STATUS_BAR_HEIGHT, users_width,     1,                    1              );
-    chat_content =  subwin(chat_border,  LINES - PANEL_HEIGHT - 2 - STATUS_BAR_HEIGHT, chat_width - 4,  1,                    users_width + 3);
-    
+	/*									 lines,										   cols,			y,					x			 */
+	users_content = subwin(users_border, LINES - PANEL_HEIGHT - 2 - STATUS_BAR_HEIGHT, users_width,	 1,					1			  );
+	chat_content =  subwin(chat_border,  LINES - PANEL_HEIGHT - 2 - STATUS_BAR_HEIGHT, chat_width - 4,  1,					users_width + 3);
+	
 	/* draw border around windows */
 	refresh();
-    draw_border(users_border, true);
-    draw_border(chat_border, false);
+	draw_border(users_border, true);
+	draw_border(chat_border, false);
 
-    scrollok(users_content, true);
-    scrollok(chat_content, true);
-    refresh();
+	scrollok(users_content, true);
+	scrollok(chat_content, true);
+	refresh();
 }
 
 /*
@@ -160,24 +160,24 @@ void windows_init()
  */
 void draw_border(WINDOW *window, bool active)
 {
-    /* turn on color depends on active */
-    if (active) {
-        wattron(window, COLOR_PAIR(3));
-    } else {
-        wattron(window, COLOR_PAIR(5));
-    }
+	/* turn on color depends on active */
+	if (active) {
+		wattron(window, COLOR_PAIR(3));
+	} else {
+		wattron(window, COLOR_PAIR(5));
+	}
 
 	box(window, 0, 0);
 
-    /* turn color off after turning it on */
-    if (active) {
-        wattroff(window, COLOR_PAIR(3));
-    } else {
-        wattroff(window, COLOR_PAIR(5));
-    }
+	/* turn color off after turning it on */
+	if (active) {
+		wattroff(window, COLOR_PAIR(3));
+	} else {
+		wattroff(window, COLOR_PAIR(5));
+	}
 
 	/* Refresh the window to see the colored border and title */
-    wrefresh(window);
+	wrefresh(window);
 }
 
 /*
@@ -185,12 +185,12 @@ void draw_border(WINDOW *window, bool active)
  */
 void wpprintw(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    wclear(panel);
-    vw_printw(panel, fmt, args);
-    va_end(args);
-    wrefresh(panel);
+	va_list args;
+	va_start(args, fmt);
+	wclear(panel);
+	vw_printw(panel, fmt, args);
+	va_end(args);
+	wrefresh(panel);
 }
 
 /*
@@ -198,55 +198,55 @@ void wpprintw(const char *fmt, ...)
  */
 void draw_users()
 {
-    long overflow = 0;
+	long overflow = 0;
 	/* Check if the current selected user is not shown in rendered text */
-    if (current_user > LINES - 3) {
-        /* overflown */
-        overflow = current_user - (LINES - 3);
-    }
+	if (current_user > LINES - 3) {
+		/* overflown */
+		overflow = current_user - (LINES - 3);
+	}
 
-    /* Calculate number of users to show */
-    long range = users->length;
-    /* Stop drawing if there is no users */
-    if (range == 0) {
+	/* Calculate number of users to show */
+	long range = users->length;
+	/* Stop drawing if there is no users */
+	if (range == 0) {
 		wprintw(chat_content, "No users. Start a converstation.");
 		wrefresh(chat_content);
-        return;
-    }
+		return;
+	}
 
-    if (range > LINES - 3) {
-        /* if there are more users than lines available to display
-         * shrink range to avaiable lines to display with
-         * overflow to keep the number of iterations to be constant */
-        range = LINES - 3 + overflow;
-    }
-    
+	if (range > LINES - 3) {
+		/* if there are more users than lines available to display
+		 * shrink range to avaiable lines to display with
+		 * overflow to keep the number of iterations to be constant */
+		range = LINES - 3 + overflow;
+	}
+	
 	/* Clears content before printing */
-    wclear(users_content);
+	wclear(users_content);
 
 	/* To keep track the line to print after overflow */
-    long line_count = 0;
-    for (long i = overflow; i < range; i++) {
+	long line_count = 0;
+	for (long i = overflow; i < range; i++) {
 		/* Check for currently selected user */
-        if ((overflow == 0 && i == current_user) || (overflow != 0 && i == current_user)) {
+		if ((overflow == 0 && i == current_user) || (overflow != 0 && i == current_user)) {
 			/* current selected user should have color reversed */
-            wattron(users_content, A_REVERSE);
+			wattron(users_content, A_REVERSE);
 
-            /* check for marked users */
-            long num_marked = marked->length;
-            if (num_marked > 0) {
-                /* Determine length of formatted string */
-                int m_len = snprintf(NULL, 0, "[%ld] selected", num_marked);
-                char *selected = memalloc(m_len + 1);
+			/* check for marked users */
+			long num_marked = marked->length;
+			if (num_marked > 0) {
+				/* Determine length of formatted string */
+				int m_len = snprintf(NULL, 0, "[%ld] selected", num_marked);
+				char *selected = memalloc(m_len + 1);
 
-                snprintf(selected, m_len + 1, "[%ld] selected", num_marked);
-                wpprintw("(%ld/%ld) %s", current_user + 1, users->length, selected);
-            } else  {
-                wpprintw("(%ld/%ld)", current_user + 1, users->length);
-            }
-        }
-        /* print the actual filename and stats */
-        user seluser = users->items[i];
+				snprintf(selected, m_len + 1, "[%ld] selected", num_marked);
+				wpprintw("(%ld/%ld) %s", current_user + 1, users->length, selected);
+			} else  {
+				wpprintw("(%ld/%ld)", current_user + 1, users->length);
+			}
+		}
+		/* print the actual filename and stats */
+		user seluser = users->items[i];
 		size_t name_len = strlen(seluser.name);
 
 		/* If length of name is longer than half of allowed size in window,
@@ -268,18 +268,18 @@ void draw_users()
 			line[name_len] = '\0';
 		}
 
-        int color = users->items[i].color;
+		int color = users->items[i].color;
 
-        /* check is user marked for action */
-        bool is_marked = arraylist_search(marked, users->items[i].name) != -1;
-        if (is_marked) {
-            /* show user is selected */
-            wattron(users_content, COLOR_PAIR(7));
-        } else {
-            /* print username with default color */
-            wattron(users_content, COLOR_PAIR(color));
-        }
-        
+		/* check is user marked for action */
+		bool is_marked = arraylist_search(marked, users->items[i].name) != -1;
+		if (is_marked) {
+			/* show user is selected */
+			wattron(users_content, COLOR_PAIR(7));
+		} else {
+			/* print username with default color */
+			wattron(users_content, COLOR_PAIR(color));
+		}
+		
 		if (overflow > 0) {
 			mvwprintw(users_content, line_count, 0, "%s", line);
 		} else {
@@ -287,20 +287,20 @@ void draw_users()
 		}
 		
 		/* turn off color after printing */
-        if (is_marked) {
-            wattroff(users_content, COLOR_PAIR(7));
+		if (is_marked) {
+			wattroff(users_content, COLOR_PAIR(7));
 		} else {
-            wattroff(users_content, COLOR_PAIR(color));
-        }
+			wattroff(users_content, COLOR_PAIR(color));
+		}
 
-        wattroff(users_content, A_REVERSE);
-        line_count++;
-    }
+		wattroff(users_content, A_REVERSE);
+		line_count++;
+	}
 
-    wrefresh(users_content);
-    wrefresh(panel);
-    /* show chat conversation every time cursor changes */
-    show_chat(users->items[current_user].name);
+	wrefresh(users_content);
+	wrefresh(panel);
+	/* show chat conversation every time cursor changes */
+	show_chat(users->items[current_user].name);
 }
 
 void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t length, time_t creation)
@@ -321,8 +321,8 @@ void add_message(uint8_t *author, uint8_t *recipient, uint8_t *content, uint32_t
  */
 void print_message(int flag, message_t *msg)
 {
-    struct tm *timeinfo = localtime(&msg->creation);
-    char timestr[21];
+	struct tm *timeinfo = localtime(&msg->creation);
+	char timestr[21];
 	if (flag) {
 		strftime(timestr, sizeof(timestr), "%b %d %Y %H:%M:%S", timeinfo);
 	} else {
@@ -337,152 +337,152 @@ void print_message(int flag, message_t *msg)
 	wattroff(chat_content, A_BOLD);
 	wattroff(chat_content, COLOR_PAIR(user_color));
 
-    int i = 0;
-    int n = strlen(msg->content);
-    int in_bold = 0, in_italic = 0, in_underline = 0, in_block = 0;
-    int last_active_color = -1;
+	int i = 0;
+	int n = strlen(msg->content);
+	int in_bold = 0, in_italic = 0, in_underline = 0, in_block = 0;
+	int last_active_color = -1;
 
-    while (i < n) {
-        /* Bold */
-        if (msg->content[i] == '*' && msg->content[i + 1] == '*') {
-            if (!in_bold) {
-                /* Look ahead for the matching closing delimiter */
+	while (i < n) {
+		/* Bold */
+		if (msg->content[i] == '*' && msg->content[i + 1] == '*') {
+			if (!in_bold) {
+				/* Look ahead for the matching closing delimiter */
 				int closing_pos = i + 2;
 				while (closing_pos < n && !(msg->content[closing_pos] == '*' && msg->content[closing_pos + 1] == '*')) {
 					closing_pos++;
 				}
 				if (closing_pos < n) {
-                    wattron(chat_content, A_BOLD);
-                    in_bold = 1;
+					wattron(chat_content, A_BOLD);
+					in_bold = 1;
 				} else {
 					/* Treat as regular text if closing delimiter */
 					waddch(chat_content, msg->content[i++]);
 				}
 			} else {
 				wattroff(chat_content, A_BOLD);
-                in_bold = 0;
+				in_bold = 0;
 			}
 			/* Skip */
 			i += 2;
 
 		/* Italic */
-        } else if (msg->content[i] == '*') {
-            if (!in_italic) {
-                /* Look ahead for the matching closing delimiter */
-                int closing_pos = i + 1;
-                while (closing_pos < n && msg->content[closing_pos] != '*') {
-                    closing_pos++;
-                }
-                if (closing_pos < n) {
-                    wattron(chat_content, A_ITALIC);
-                    in_italic = 1;
-                } else {
+		} else if (msg->content[i] == '*') {
+			if (!in_italic) {
+				/* Look ahead for the matching closing delimiter */
+				int closing_pos = i + 1;
+				while (closing_pos < n && msg->content[closing_pos] != '*') {
+					closing_pos++;
+				}
+				if (closing_pos < n) {
+					wattron(chat_content, A_ITALIC);
+					in_italic = 1;
+				} else {
 					/* Treat as regular text if closing delimiter */
-                    waddch(chat_content, msg->content[i++]);
-                }
-            } else {
-                wattroff(chat_content, A_ITALIC);
-                in_italic = 0;
-            }
+					waddch(chat_content, msg->content[i++]);
+				}
+			} else {
+				wattroff(chat_content, A_ITALIC);
+				in_italic = 0;
+			}
 			/* Skip */
 			i += 1;
 
 		/* Underline */
-        } else if (msg->content[i] == '_') {
-            if (!in_underline) {
-                /* Look ahead for the matching closing delimiter */
-                int closing_pos = i + 1;
-                while (closing_pos < n && msg->content[closing_pos] != '_') {
-                    closing_pos++;
-                }
-                if (closing_pos < n) {
-                    wattron(chat_content, A_UNDERLINE);
-                    in_underline = 1;
-                } else {
+		} else if (msg->content[i] == '_') {
+			if (!in_underline) {
+				/* Look ahead for the matching closing delimiter */
+				int closing_pos = i + 1;
+				while (closing_pos < n && msg->content[closing_pos] != '_') {
+					closing_pos++;
+				}
+				if (closing_pos < n) {
+					wattron(chat_content, A_UNDERLINE);
+					in_underline = 1;
+				} else {
 					/* Treat as regular text if closing delimiter */
-                    waddch(chat_content, msg->content[i++]);
-                }
-            } else {
-                wattroff(chat_content, A_UNDERLINE);
-                in_underline = 0;
-            }
+					waddch(chat_content, msg->content[i++]);
+				}
+			} else {
+				wattroff(chat_content, A_UNDERLINE);
+				in_underline = 0;
+			}
 			/* Skip */
 			i += 1;
 
 		/* Block */
-        } else if (msg->content[i] == '`') {
-            if (!in_block) {
-                /* Look ahead for the matching closing delimiter */
-                int closing_pos = i + 1;
-                while (closing_pos < n && msg->content[closing_pos] != '`') {
-                    closing_pos++;
-                }
-                if (closing_pos < n) {
-                    wattron(chat_content, A_STANDOUT);
-                    in_block = 1;
-                } else {
+		} else if (msg->content[i] == '`') {
+			if (!in_block) {
+				/* Look ahead for the matching closing delimiter */
+				int closing_pos = i + 1;
+				while (closing_pos < n && msg->content[closing_pos] != '`') {
+					closing_pos++;
+				}
+				if (closing_pos < n) {
+					wattron(chat_content, A_STANDOUT);
+					in_block = 1;
+				} else {
 					/* Treat as regular text if closing delimiter */
-                    waddch(chat_content, msg->content[i++]);
-                }
-            } else {
-                wattroff(chat_content, A_STANDOUT);
-                in_block = 0;
-            }
+					waddch(chat_content, msg->content[i++]);
+				}
+			} else {
+				wattroff(chat_content, A_STANDOUT);
+				in_block = 0;
+			}
 			/* Skip */
 			i += 1; 
 
 		/* Allow escape sequence for genuine backslash */
 		} else if (msg->content[i] == '\\' && msg->content[i + 1] == '\\') {
 			/* Print a literal backslash */
-            waddch(chat_content, '\\');
+			waddch(chat_content, '\\');
 			/* Skip both backslashes */
-            i += 2;
+			i += 2;
 
 		/* Color, new line and tab */
-        } else if (msg->content[i] == '\\') {
+		} else if (msg->content[i] == '\\') {
 			/* Skip the backslash and check the next character */
-            i++;
-            /* Handle color codes \1 to \8 */
-            if (msg->content[i] >= '1' && msg->content[i] <= '8') {
+			i++;
+			/* Handle color codes \1 to \8 */
+			if (msg->content[i] >= '1' && msg->content[i] <= '8') {
 				/* Convert char to int */
-                int new_color = msg->content[i] - '0';
-                if (new_color == last_active_color) {
+				int new_color = msg->content[i] - '0';
+				if (new_color == last_active_color) {
 					/* Turn off current color */
-                    wattroff(chat_content, COLOR_PAIR(last_active_color));
+					wattroff(chat_content, COLOR_PAIR(last_active_color));
 					/* Reset last active color */
 					last_active_color = -1;
-                } else {
-                    if (last_active_color != -1) {
+				} else {
+					if (last_active_color != -1) {
 						/* Turn off previous color */
-                        wattroff(chat_content, COLOR_PAIR(last_active_color));
-                    }
-                    last_active_color = new_color;
+						wattroff(chat_content, COLOR_PAIR(last_active_color));
+					}
+					last_active_color = new_color;
 					/* Turn on new color */
-                    wattron(chat_content, COLOR_PAIR(new_color));
-                }
+					wattron(chat_content, COLOR_PAIR(new_color));
+				}
 				i++;
-            /* Handle new line */
-            } else if (msg->content[i] == 'n') {
-                waddch(chat_content, '\n');
+			/* Handle new line */
+			} else if (msg->content[i] == 'n') {
+				waddch(chat_content, '\n');
 				/* Skip the 'n' */
-                i++;
+				i++;
 
-            } else {
-                /* Invalid sequence, just print the backslash and character */
-                waddch(chat_content, '\\');
-                waddch(chat_content, msg->content[i]);
-                i++;
-            }
+			} else {
+				/* Invalid sequence, just print the backslash and character */
+				waddch(chat_content, '\\');
+				waddch(chat_content, msg->content[i]);
+				i++;
+			}
 		} else {
-            /* Print regular character */ 
-            waddch(chat_content, msg->content[i]);
-            i++;
-        }
+			/* Print regular character */ 
+			waddch(chat_content, msg->content[i]);
+			i++;
+		}
 	}
-    /* Ensure attributes are turned off after printing */
-    wattroff(chat_content, A_BOLD);
-    wattroff(chat_content, A_ITALIC);
-    wattroff(chat_content, A_UNDERLINE);
+	/* Ensure attributes are turned off after printing */
+	wattroff(chat_content, A_BOLD);
+	wattroff(chat_content, A_ITALIC);
+	wattroff(chat_content, A_UNDERLINE);
 	wattroff(chat_content, A_STANDOUT);
 	for (int i = 1; i < 8; i++) {
 		wattroff(chat_content, COLOR_PAIR(i));
@@ -607,25 +607,25 @@ void send_message()
 
 	size_t content_len = strlen(content);
 
-    uint32_t cipher_len = content_len + ADDITIONAL_SIZE;
-    uint8_t nonce[NONCE_SIZE], encrypted[cipher_len];
-    
-    /* Generate random nonce(number used once) */
-    randombytes_buf(nonce, sizeof(nonce));
+	uint32_t cipher_len = content_len + ADDITIONAL_SIZE;
+	uint8_t nonce[NONCE_SIZE], encrypted[cipher_len];
+	
+	/* Generate random nonce(number used once) */
+	randombytes_buf(nonce, sizeof(nonce));
 	
 	/* Encrypt the content and store it to encrypted, should be cipher_len */
 	
 	crypto_aead_xchacha20poly1305_ietf_encrypt(encrypted, NULL, content,
 			content_len, NULL, 0, NULL, nonce, shared_key);
 
-    size_t data_len = MAX_NAME * 2 + NONCE_SIZE + cipher_len;
-    uint8_t *data = memalloc(data_len);
+	size_t data_len = MAX_NAME * 2 + NONCE_SIZE + cipher_len;
+	uint8_t *data = memalloc(data_len);
 
 	uint8_t recipient_padded[MAX_NAME];
 	strcpy(recipient_padded, recipient);
-    size_t length = strlen(recipient);
-    if (length < MAX_NAME) {
-        /* Pad with null characters up to max length */
+	size_t length = strlen(recipient);
+	if (length < MAX_NAME) {
+		/* Pad with null characters up to max length */
 		memset(recipient_padded + length, 0, MAX_NAME - length);
 	} else {
 		free(shared_key);
@@ -634,10 +634,10 @@ void send_message()
 	}
 
 	/* Construct data */
-    memcpy(data, kp_from->pk.username, MAX_NAME);
-    memcpy(data + MAX_NAME, recipient, MAX_NAME);
-    memcpy(data + MAX_NAME * 2, nonce, NONCE_SIZE);
-    memcpy(data + MAX_NAME * 2 + NONCE_SIZE, encrypted, cipher_len);
+	memcpy(data, kp_from->pk.username, MAX_NAME);
+	memcpy(data + MAX_NAME, recipient, MAX_NAME);
+	memcpy(data + MAX_NAME * 2, nonce, NONCE_SIZE);
+	memcpy(data + MAX_NAME * 2 + NONCE_SIZE, encrypted, cipher_len);
 
 	uint8_t *signature = create_signature(data, data_len, kp_from->sk);
 	packet_t *pkt = create_packet(1, ZSM_TYP_MESSAGE, data_len, data, signature);
@@ -689,12 +689,12 @@ void get_panel_content(int ch)
 	if (current_mode != COMMAND && current_mode != INSERT)
 		return;
 	
-    if (ch == KEY_BACKSPACE || ch == 127) {
-        if (curs_pos > 0) {
-            curs_pos--;
-            content[curs_pos] = '\0';
-        }
-    }
+	if (ch == KEY_BACKSPACE || ch == 127) {
+		if (curs_pos > 0) {
+			curs_pos--;
+			content[curs_pos] = '\0';
+		}
+	}
 	if (ch == ENTER) {
 		if (current_mode == INSERT && current_window == CHAT_WINDOW) {
 			content[curs_pos++] = ch;
@@ -712,9 +712,9 @@ void get_panel_content(int ch)
 			content[curs_pos++] = ch;
 			content[curs_pos] = '\0';
 		}
-    }
+	}
 
-    /* Display the current content */
+	/* Display the current content */
 	update_panel();
 }
 
@@ -769,14 +769,14 @@ void draw_status_bar()
 void ui(int *fd)
 {
 	signal(SIGPIPE, signal_handler);
-    signal(SIGABRT, signal_handler);
+	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
 	srand(time(NULL));
 
-    ncurses_init();
-    windows_init();
+	ncurses_init();
+	windows_init();
 
 	users = arraylist_init(LINES);
 	marked = arraylist_init(100);
@@ -787,7 +787,7 @@ void ui(int *fd)
 
 	refresh();
 	sockfd = *fd;
-    while (1) {
+	while (1) {
 		draw_status_bar();
 		int ch = getch();
 		switch (ch) {
@@ -825,7 +825,7 @@ void ui(int *fd)
 				break;
 
 			/* go up by k or up arrow */
-            case 'k':
+			case 'k':
 				if (current_mode == NORMAL && current_window == USERS_WINDOW) {
 					if (current_user > 0)
 						current_user--;
@@ -836,7 +836,7 @@ void ui(int *fd)
 				break;
 
 			 /* go down by j or down arrow */
-            case 'j':
+			case 'j':
 				if (current_mode == NORMAL && current_window == USERS_WINDOW) {
 					if (current_user < (users->length - 1))
 						current_user++;
@@ -855,7 +855,7 @@ void ui(int *fd)
 			default:
 				get_panel_content(ch);
 		}
-    }
+	}
 	deinit();
 	return;
 }

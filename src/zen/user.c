@@ -7,18 +7,18 @@
 
 ArrayList *arraylist_init(size_t capacity)
 {
-    ArrayList *list = memalloc(sizeof(ArrayList));
-    list->length = 0;
-    list->capacity = capacity;
-    list->items = memalloc(capacity * sizeof(user));
+	ArrayList *list = memalloc(sizeof(ArrayList));
+	list->length = 0;
+	list->capacity = capacity;
+	list->items = memalloc(capacity * sizeof(user));
 
-    return list;
+	return list;
 }
 
 void arraylist_free(ArrayList *list)
 {
-    free(list->items);
-    free(list);
+	free(list->items);
+	free(list);
 }
 
 /*
@@ -26,23 +26,23 @@ void arraylist_free(ArrayList *list)
  */
 long arraylist_search(ArrayList *list, uint8_t *username)
 {
-    for (long i = 0; i < list->length; i++) {
-        if (strcmp(list->items[i].name, username) == 0) {
-            return i;
-        }
-    }
-    return -1;
+	for (long i = 0; i < list->length; i++) {
+		if (strcmp(list->items[i].name, username) == 0) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 void arraylist_remove(ArrayList *list, long index)
 {
-    if (index >= list->length)
-        return;
+	if (index >= list->length)
+		return;
 
-    for (long i = index; i < list->length - 1; i++)
-        list->items[i] = list->items[i + 1];
+	for (long i = index; i < list->length - 1; i++)
+		list->items[i] = list->items[i + 1];
 
-    list->length--;
+	list->length--;
 }
 
 /*
@@ -50,35 +50,35 @@ void arraylist_remove(ArrayList *list, long index)
  */
 void arraylist_add(ArrayList *list, uint8_t *username, int color, bool marked, bool force)
 {
-    user new_user;
+	user new_user;
 	strcpy(new_user.name, username);
 	new_user.color = color;
 
-    if (list->capacity != list->length) {
-        if (marked) {
-            for (int i = 0; i < list->length; i++) {
-                if (strcmp(list->items[i].name, new_user.name) == 0) {
-                    if (!force)
-                        arraylist_remove(list, i);
-                    return;
-                }
-            }
-        }
-        list->items[list->length] = new_user;
-    } else {
-        int new_cap = list->capacity * 2;
-        user *new_items = memalloc(new_cap * sizeof(user));
-        user *old_items = list->items;
-        list->capacity = new_cap;
-        list->items = new_items;
+	if (list->capacity != list->length) {
+		if (marked) {
+			for (int i = 0; i < list->length; i++) {
+				if (strcmp(list->items[i].name, new_user.name) == 0) {
+					if (!force)
+						arraylist_remove(list, i);
+					return;
+				}
+			}
+		}
+		list->items[list->length] = new_user;
+	} else {
+		int new_cap = list->capacity * 2;
+		user *new_items = memalloc(new_cap * sizeof(user));
+		user *old_items = list->items;
+		list->capacity = new_cap;
+		list->items = new_items;
 
-        for (int i = 0; i < list->length; i++)
-            new_items[i] = old_items[i];
+		for (int i = 0; i < list->length; i++)
+			new_items[i] = old_items[i];
 
-        free(old_items);
-        list->items[list->length] = new_user;
-    }
-    list->length++;
+		free(old_items);
+		list->items[list->length] = new_user;
+	}
+	list->length++;
 }
 
 int get_user_color(ArrayList *list, uint8_t *username)

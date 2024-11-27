@@ -12,11 +12,11 @@ static int get_users_callback(void *_, int argc, char **argv, char **col_name)
 {
 	/*
 	for(int i = 0; i < argc; i++) {
-        printf("%s = %s\n", column[i], argv[i] ? argv[i] : "NULL");
-    }
+		printf("%s = %s\n", column[i], argv[i] ? argv[i] : "NULL");
+	}
 */
 	add_username(argv[0]);
-    return 0;
+	return 0;
 }
 
 void get_users()
@@ -97,7 +97,7 @@ void save_sharedkey(uint8_t *username, uint8_t *shared_key)
 		sqlite3_close(db);
 	}
 	sqlite3_bind_text(statement, 1, username, strlen(username), SQLITE_STATIC);
-    sqlite3_bind_blob(statement, 2, shared_key, SHARED_KEY_SIZE, SQLITE_STATIC);
+	sqlite3_bind_blob(statement, 2, shared_key, SHARED_KEY_SIZE, SQLITE_STATIC);
 
 	if (sqlite3_step(statement) != SQLITE_DONE) {
 		error(0, "Failed to execute statement");
@@ -131,12 +131,12 @@ void sqlite_init()
 		"Username TEXT NOT NULL, SharedKey BLOB NOT NULL,"
 		"PRIMARY KEY(Username));";
 
-    if (sqlite3_exec(db, create_keys_table, 0, 0, &err_msg) != SQLITE_OK) {
-        error(0, "Cannot create Keys table: %s", err_msg);
-        sqlite3_free(err_msg);        
-    } else {
+	if (sqlite3_exec(db, create_keys_table, 0, 0, &err_msg) != SQLITE_OK) {
+		error(0, "Cannot create Keys table: %s", err_msg);
+		sqlite3_free(err_msg);		
+	} else {
 		write_log(LOG_INFO, "Keys Table created successfully");
-    }
+	}
 	
 	sqlite3_close(db);
 }
