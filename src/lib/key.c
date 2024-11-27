@@ -8,14 +8,14 @@ keypair_t *create_keypair(char *username)
 			username_padded[MAX_NAME], pk_hash[HASH_SIZE], pk_sign[SIGN_SIZE],
 			pk[PK_SIZE];
 
-    crypto_sign_keypair(pk_raw, sk);
+	crypto_sign_keypair(pk_raw, sk);
 	
 	time_t current_time = time(NULL);
 
 	strcpy(username_padded, username);
-    size_t length = strlen(username);
-    if (length < MAX_NAME) {
-        /* Pad with null characters up to max length */
+	size_t length = strlen(username);
+	if (length < MAX_NAME) {
+		/* Pad with null characters up to max length */
 		memset(username_padded + length, 0, MAX_NAME - length);
 	} else {
 		error(0, "Username must be shorter than MAX_NAME");
@@ -27,7 +27,7 @@ keypair_t *create_keypair(char *username)
 	memcpy(pk_data + PK_ED25519_SIZE + MAX_NAME, &current_time, TIME_SIZE);
 
 	crypto_generichash(pk_hash, HASH_SIZE, pk_data, PK_DATA_SIZE, NULL, 0);
-    crypto_sign_detached(pk_sign, NULL, pk_hash, HASH_SIZE, sk);
+	crypto_sign_detached(pk_sign, NULL, pk_hash, HASH_SIZE, sk);
 
 	memcpy(pk, pk_data, PK_DATA_SIZE);
 	memcpy(pk + PK_DATA_SIZE, pk_sign, SIGN_SIZE);
@@ -79,36 +79,36 @@ keypair_t *get_keypair(char *username)
 		create_keypair(username);
 	}
 
-    FILE *keyf = fopen(keyf_path, "r");
-    if (!keyf) {
+	FILE *keyf = fopen(keyf_path, "r");
+	if (!keyf) {
 		error(1, "Error opening key file to read");
-        return NULL;
-    }
+		return NULL;
+	}
 
 	uint8_t pk[PK_SIZE], sk[SK_SIZE];
 	size_t bytes_read;
-    bytes_read = fread(pk, 1, PK_SIZE, keyf);
-    if (bytes_read != PK_SIZE) {
-        error(1, "Error reading public key from file, bytes_read(%zu)!=%d", bytes_read, PK_SIZE);
-    }
+	bytes_read = fread(pk, 1, PK_SIZE, keyf);
+	if (bytes_read != PK_SIZE) {
+		error(1, "Error reading public key from file, bytes_read(%zu)!=%d", bytes_read, PK_SIZE);
+	}
 
-    bytes_read = fread(sk, 1, SK_SIZE, keyf);
-    if (bytes_read != SK_SIZE) {
-        error(1, "Error reading secret key from file, bytes_read(%zu)!=%d", bytes_read, SK_SIZE);
-    }
-    fclose(keyf);
+	bytes_read = fread(sk, 1, SK_SIZE, keyf);
+	if (bytes_read != SK_SIZE) {
+		error(1, "Error reading secret key from file, bytes_read(%zu)!=%d", bytes_read, SK_SIZE);
+	}
+	fclose(keyf);
 
-    keypair_t *kp = memalloc(sizeof(keypair_t));
+	keypair_t *kp = memalloc(sizeof(keypair_t));
 
-    memcpy(kp->pk.raw, pk, PK_ED25519_SIZE);
-    memcpy(kp->pk.username, pk + PK_ED25519_SIZE, MAX_NAME);
-    memcpy(&kp->pk.creation, pk + PK_ED25519_SIZE + MAX_NAME, TIME_SIZE);
-    memcpy(kp->pk.signature, pk + PK_DATA_SIZE, SIGN_SIZE);
+	memcpy(kp->pk.raw, pk, PK_ED25519_SIZE);
+	memcpy(kp->pk.username, pk + PK_ED25519_SIZE, MAX_NAME);
+	memcpy(&kp->pk.creation, pk + PK_ED25519_SIZE + MAX_NAME, TIME_SIZE);
+	memcpy(kp->pk.signature, pk + PK_DATA_SIZE, SIGN_SIZE);
 	memcpy(kp->pk.full, pk, PK_SIZE);
 
-    memcpy(kp->sk, sk, SK_SIZE);
+	memcpy(kp->sk, sk, SK_SIZE);
 
-    return kp;
+	return kp;
 }
 
 /*
@@ -117,7 +117,7 @@ keypair_t *get_keypair(char *username)
 uint8_t *get_pk_from_ks(char *username)
 {
 	size_t bin_len = PK_ED25519_SIZE;
-    unsigned char *bin = memalloc(bin_len);
+	unsigned char *bin = memalloc(bin_len);
 	/* TEMPORARY */
 	if (strcmp(username, "night") == 0) {
 		sodium_hex2bin(bin, bin_len, "e2f0287d9c23aed8404dd8ba407e7dff8abe40fa98f0b9adf74904978a5fcd50", PK_ED25519_SIZE * 2, NULL, NULL, NULL);
