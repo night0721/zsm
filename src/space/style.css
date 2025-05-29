@@ -1,0 +1,506 @@
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url(./assets/JetBrainsMono-Regular.woff2) format('woff2'),
+	url(./assets/JetBrainsMono-Regular.ttf) format('truetype');
+}
+
+:root {
+	--mauve: #cba6f7;
+	--yellow: #f9e2af;
+	--green: #a6e3a1;
+	--sky: #89dceb;
+	--lavender: #b4befe;
+	--blue: #89b4fa;
+	--light-blue: #accbfc;
+	--text: #cdd6f4;
+	--subtext0: #a6adc8;
+	--surface1: #45475a;
+	--surface0: #313244;
+	--base: #1e1e2e;
+	--mantle: #181825;
+	--crust: #11111b;
+}
+
+.latte {
+	--mauve: #8839ef;
+	--yellow: #df8e1d;
+	--green: #40a02b;
+	--sky: #04a5e5;
+	--lavender: #7287fd;
+	--blue: #1e66f5;
+	--light-blue: #6294f8;
+	--text: #4c4f69;
+	--subtext0: #6c6f85;
+	--surface1: #bcc0cc;
+	--surface0: #ccd0da;
+	--base: #eff1f5;
+	--mantle: #e6e9ef;
+	--crust: #dce0e8;
+}
+
+* {
+	margin: 0;
+	box-sizing: border-box;
+	line-height: 100%;
+	font-family: "Poppins", sans-serif;
+}
+
+body {
+	background-color: var(--mantle);
+	color: var(--text);
+	max-width: 100vw;
+	height: 100vh;
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	overflow: hidden;
+}
+
+.login {
+	background-color: var(--surface0);
+	padding: 2rem;
+	border-radius: 0.75rem;
+	border: 0.2rem solid var(--lavender);
+	box-shadow: 1.25rem 1.25rem 1rem rgba(0, 0, 0, 0.5);
+	width: 100%;
+	max-width: 400px;
+}
+
+.login-title {
+	font-size: 2rem;
+	margin-bottom: 1.5rem;
+	text-align: center;
+	color: var(--lavender);
+}
+
+.field {
+	margin-bottom: 1.5rem;
+}
+
+.label {
+	display: block;
+	font-size: 0.9rem;
+	margin-bottom: 0.5rem;
+	color: var(--subtext0);
+}
+
+.login-input {
+	width: 100%;
+	padding: 0.8rem;
+	border: none;
+	border-radius: 0.3rem;
+	font-size: 1rem;
+	background-color: var(--base);
+	color: var(--text);
+}
+
+.login-input:focus {
+	outline: none;
+	border: 0.1rem solid var(--lavender);
+}
+
+.login-button {
+	width: 100%;
+	padding: 0.8rem;
+	font-size: 1rem;
+	border: none;
+	border-radius: 0.5rem;
+	color: var(--base);
+	background-color: var(--lavender);
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.login-button:hover {
+	background-color: var(--lavender);
+}
+
+/* Make the remember me checkbox label beside the checkbox */
+.field-remember-me {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0;
+}
+
+.label-remember-me {
+	margin: 0;
+}
+
+.footer {
+	margin-top: 1.5rem;
+	text-align: center;
+	font-size: 0.9rem;
+	color: var(--subtext0);
+}
+
+.login-signup {
+	color: var(--mauve);
+	text-decoration: none;
+}
+
+.login-signup:hover {
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+/* Left panel */
+
+.left-panel {
+	background-color: var(--mantle);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	overflow-y: auto;
+	width: 19%;
+	gap: 0.7rem;
+}
+
+.current-user {
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	background-color: var(--crust);
+	font-size: 1.4rem;
+}
+
+.current-username {
+	border-radius: 0.5rem;
+	padding: 0.5rem 1rem;
+	overflow-wrap: anywhere;
+	font-size: 60%;
+	color: var(--text);
+	cursor: pointer;
+}
+
+#inbox-title {
+	padding: 0.7rem;
+	font-size: 1.7rem;
+	margin-left: 0.7rem;
+}
+
+.horiz-container {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: var(--crust);
+	padding: 0.7rem;
+	font-size: 1.7rem;
+}
+
+.user-button {
+	max-width: 2.5rem;
+	height: 70%;
+	cursor: pointer;
+}
+
+.settings {
+	margin-left: auto;
+}
+
+.users {
+	height: 100%;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	overflow: scroll;
+}
+
+.user {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	background-color: var(--mantle);
+	width: 100%;
+	cursor: pointer;
+	padding: 1.2rem;
+}
+
+.user-container {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	border: 0;
+	transition: background-color 0.3s;
+}
+
+.delete-user {
+	visibility: hidden;
+}
+
+.selected {
+	background-color: var(--blue);
+	.user-name {
+		color: var(--mantle);
+	}
+	.user-last-message {
+		color: var(--surface0);
+	}
+}
+
+.user:hover {
+	background-color: var(--light-blue);
+	box-shadow: 0px 6px 7px 4px var(--crust);
+	overflow: visible;
+	clip-path: inset(-20px);
+
+	.user-name {
+		color: var(--mantle);
+	}
+
+	.user-last-message {
+		color: var(--surface0);
+	}
+
+	.delete-user {
+		visibility: visible;
+	}
+}
+
+.unread {
+	border: 0.2rem solid var(--yellow);
+}
+
+.user-name {
+	color: var(--text);
+	font-size: 0.9rem;
+	text-align: left;
+	padding: 0.2rem;
+	margin-bottom: 0.2rem;
+	overflow-wrap: anywhere;
+}
+
+.user-last-message {
+	color: var(--subtext0);
+	font-size: 0.9rem;
+	text-align: left;
+	padding: 0.2rem;
+}
+
+.right-panel {
+	border-left: 0;
+	flex-grow: 1;
+	padding: 1rem;
+	width: 65%;
+	min-height: 70vh;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	overflow: hidden;
+	background-color: var(--base);
+}
+
+/* Scrollbars */
+.users::-webkit-scrollbar,
+.messages::-webkit-scrollbar {
+	width: 8px;
+}
+
+.users::-webkit-scrollbar-thumb,
+.messages::-webkit-scrollbar-thumb {
+	background-color: var(--surface1);
+	border-radius: 4px;
+}
+
+.users::-webkit-scrollbar-track,
+.messages::-webkit-scrollbar-track {
+	background-color: var(--surface0);
+}
+
+/* Responsive Design */
+@media only screen and (max-width: 1130px) {
+	html {
+		font-size: 12px;
+	}
+}
+
+@media only screen and (max-width: 520px) {
+	.app-name {
+		font-size: 1.5rem;
+	}
+
+	.left-panel {
+		width: 40%;
+	}
+
+	.right-panel {
+		padding: 0.5rem;
+	}
+
+	html {
+		font-size: 10px;
+	}
+}
+
+@media only screen and (max-width: 375px) {
+	.app-name {
+		font-size: 1.2rem;
+	}
+
+	.left-panel {
+		width: 40%;
+	}
+
+	.right-panel {
+		padding: 0.5rem;
+	}
+
+	html {
+		font-size: 10px;
+	}
+}
+
+/* Messages */
+
+.messages {
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	overflow-y: auto;
+}
+
+.message {
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	max-width: 70%;
+	padding: 0.5rem;
+	color: var(--text);
+	gap: 0.3rem;
+}
+
+.incoming {
+	align-self: flex-start;
+	margin-left: 2rem;
+}
+
+.outgoing {
+	align-self: flex-end;
+	margin-right: 2rem;
+}
+
+.incoming .message-content {
+	border-top-left-radius: 0;
+	background-color: var(--surface0);
+}
+
+.incoming .message-author {
+	color: var(--subtext0);
+}
+
+.outgoing .message-content {
+	border-top-right-radius: 0;
+	background-color: var(--sky);
+	color: var(--mantle);
+}
+
+.outgoing .message-author {
+	color: var(--sky);
+	text-align: right;
+}
+
+.message-content {
+	color: var(--text);
+	background-color: var(--surface1);
+	font-size: 1.4rem;
+	padding: 1.2rem;
+	border-radius: 0.4rem;
+	overflow-wrap: break-word;
+}
+
+.message-author {
+	color: var(--subtext0);
+	font-size: 0.75rem;
+	font-weight: 900;
+	margin-bottom: 0.1rem;
+	text-align: left;
+	overflow-wrap: anywhere;
+}
+
+.message-time {
+	color: var(--subtext0);
+	font-size: 0.75rem;
+	font-weight: 900;
+	margin-top: 0.1rem;
+	text-align: right;
+}
+
+/* Input Box */
+
+.input-box {
+	background-color: var(--mantle);
+	opacity: 0.5;
+	
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: 0.75rem;
+	gap: 1rem;
+	border-radius: 0.4rem;
+	border-bottom: solid 0.4rem var(--green);
+	transition: opacity 0.6s;
+}
+
+.arrow {
+	color: var(--blue);
+	font-size: 1.5rem;
+	font-weight: 1000;
+}
+
+.message-input {
+	flex: auto;
+	background-color: transparent;
+	border: none;
+	outline: none;
+	color: var(--text);
+	overflow-wrap: break-word;
+	font-size: 1rem;
+	overflow: hidden; /* Prevent scrollbar */
+	resize: none; /* Disable manual resizing */
+	height: 1rem;
+	min-height: 2rem;
+	max-height: 8rem;
+	line-height: 1.2rem; /* Adjust line height for better readability */
+	padding: 0.5rem; /* Adjust padding to control spacing */
+}
+
+.input-box:hover{
+	opacity: 1;
+}
+
+.send {
+	color: var(--yellow);
+	background-color: var(--mantle);
+	border: 0;
+	font-size: 1.5rem;
+	font-weight: 1000;
+	cursor: pointer;
+}
+
+textarea::placeholder {
+	color: var(--text);
+	line-height: 1.2rem;
+}
+
+#left-panel, #right-panel, #signup, #login {
+	display: none;
+}
+
+/* debug only */
+/*
+#signup, #login {
+display: none;
+}
+
+body {
+	align-items: normal;
+}
+*/

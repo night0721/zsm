@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Zen Space</title>
+		<link rel="stylesheet" href="style.css">
+		<script src="sodium.js" async></script>
+		<script src="script.js" async defer></script>
+		<script src="theme.js" defer></script>
+		<link rel="icon" href="./assets/zsm.png">
+	</head>
+	<body>
+		<div class="login" id="login">
+			<h1 class="login-title">Login</h1>
+			<form id="login-form">
+				<div class="field">
+					<label for="login-publickey" class="label">Public Key</label>
+					<input type="text" id="login-publickey" class="login-input" name="login-publickey" placeholder="Enter your public key" required>
+				</div>
+				<div class="field">
+					<label for="login-privatekey" class="label">Private Key</label>
+					<input type="password" id="login-privatekey" class="login-input" name="login-privatekey" placeholder="Enter your private key" required>
+				</div>
+				<div class="field">
+					<label for="login-server" class="label">Server Address</label>
+					<input type="text" id="login-server" class="login-input" name="login-server" placeholder="Enter the server address" required>
+				</div>
+				<div class="field field-remember-me">
+					<input type="checkbox" id="remember-me" class="remember-me" name="remember-me" class="login-checkbox">
+					<label for="remember-me" class="label label-remember-me">Remember me</label>
+				</div>
+				<div class="footer" id="login-footer">
+					By clicking remember me, you agree to let your private key be stored in your browser.
+					<br>
+					<br>
+				</div>
+				<button type="submit" class="login-button">Login</button>
+			</form>
+			<div class="footer" id="login-footer">
+				Don't have a key pair? <a class="login-signup" id="signup-button">Sign up</a>
+			</div>
+		</div>
+		<div class="login" id="signup">
+			<h1 class="login-title">Sign Up</h1>
+			<form id="signup-form">
+				<div class="field">
+					<label for="signup-publickey" class="label">Public Key</label>
+					<input type="text" id="signup-publickey" class="login-input" name="signup-publickey" placeholder="Generated public key" readonly>
+				</div>
+				<div class="field">
+					<label for="signup-privatekey" class="label">Private Key</label>
+					<input type="text" id="signup-privatekey" class="login-input" name="signup-privatekey" placeholder="Generated private key" readonly>
+				</div>
+				<button type="submit" class="login-button" id="generate-keys">Generate Keys</button>
+			</form>
+			<div class="footer" id="signup-footer">
+				Already have a key pair? <a class="login-signup" id="login-link">Login</a>
+			</div>
+		</div>
+
+		<div class="left-panel" id="left-panel">
+			<div class="current-user">
+				<div class="horiz-container">
+					<a class="current-username" id="current-username" title="Click to copy">Logged in as: </a>
+					<img src="./assets/signout.svg" alt="Signout" class="user-button" id="signout" title="Sign out">
+					<img src="./assets/plus.svg" alt="Add chat" class="user-button" id="add-chat" title="Add chat">
+					<img src="./assets/theme.svg" alt="Change theme" class="user-button" id="change-theme" title="Change theme">
+				</div>
+			</div>
+			<a id="inbox-title">Inbox</a>
+			<div class="users" id="users">
+			</div>
+		</div>
+		<div class="right-panel" id="right-panel">
+			<div class="messages">
+			</div>
+			<div class="input-box">
+				<a class="arrow">></a>
+				<textarea type="text" id="message-input" class="message-input" placeholder="Enter message here" onInput="autoscale_height(this)"></textarea>
+				<button id="send-button" class="send">></button>
+			</div>
+		</div>
+	</body>
+</html>

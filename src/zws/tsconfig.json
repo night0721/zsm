@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",                  // Specify ECMAScript target version
+    "module": "CommonJS",               // Use CommonJS module system
+    "strict": true,                     // Enable strict type checking
+    "esModuleInterop": true,            // Allow default imports from CommonJS modules
+    "forceConsistentCasingInFileNames": true, // Ensure consistent file naming
+    "skipLibCheck": true,               // Skip checking of declaration files
+    "outDir": ".",                 // Output directory for compiled files
+    "resolveJsonModule": true,          // Enable importing JSON files
+    "lib": ["ES2021", "DOM"],           // Include Node.js and DOM types
+    "typeRoots": ["./node_modules/@types"] // Use type definitions from node_modules
+  },
+  "include": ["ws.ts"],              // Include all TypeScript files in the src directory
+  "exclude": ["node_modules", "dist"]   // Exclude node_modules and build output
+}
